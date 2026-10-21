@@ -64,12 +64,23 @@ São três e nunca se misturam:
 | D10 | Testes | Vitest (unitários e integração) agora; Testing Library + jsdom na Etapa 1; Playwright na Etapa 9 | Cada dependência entra quando é precisa. |
 | D11 | Estrutura | O projeto fica na raiz da pasta/repositório `TollLab` | O repositório remoto estava vazio e a pasta só continha a especificação. |
 
+### Decisões da Etapa 1
+
+| # | Decisão | Escolha | Justificação |
+| --- | --- | --- | --- |
+| D12 | Tema | Um único tema claro e calmo. Os tokens estão em `src/index.css` (`@theme` do Tailwind v4) | Mantém o âmbito pequeno. Os tokens permitem acrescentar um tema escuro mais tarde sem mexer nos componentes. |
+| D13 | Ações ainda sem modelo | Usam `aria-disabled` com o motivo num tooltip, em vez de `disabled` | Ficam focáveis e explicam porque estão indisponíveis. Não fingem fazer nada, por isso não são botões decorativos. |
+| D14 | Tooltips | O balão é desenhado num portal com posição fixa e limitado à janela. A descrição acessível fica sempre junto ao alvo | Evita cortes e scroll horizontal dentro do painel lateral. |
+| D15 | Painel lateral | Fica ao lado do mapa (não sobreposto), com 320 px abaixo de 1440 px de largura e 352 px a partir daí. Quando fechado fica `inert` | O mapa ocupa ≈ 75% a 1280 e a 1440 e nunca fica tapado. |
+| D16 | Animação de interface | Sem Framer Motion por agora: transições CSS e redução global com `prefers-reduced-motion` | Ainda não há animações complexas que justifiquem a dependência. |
+| D17 | Galeria do design system | `?gallery`, só em desenvolvimento; eliminada do build de produção | Permite rever os componentes isoladamente. |
+
 ## 4. Dependências previstas (ainda não instaladas)
 
 | Etapa | Pacotes |
 | --- | --- |
-| 1 | `tailwindcss`, `@tailwindcss/vite`, `lucide-react`, `framer-motion` (ou `motion`), `@testing-library/react`, `@testing-library/jest-dom`, `jsdom` |
 | 3 / 7 | `three`, `@react-three/fiber`, `@react-three/drei` (só se for útil), `@types/three` |
+| quando necessário | `motion` (Framer Motion), se as transições CSS não chegarem |
 | 4 | `zustand` |
 | 9 | `@playwright/test` |
 

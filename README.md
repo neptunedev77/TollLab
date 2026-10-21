@@ -28,7 +28,7 @@ incrementally.
 
 ## Tech stack
 
-React · TypeScript (strict) · Vite · Vitest · oxlint
+React · TypeScript (strict) · Vite · Tailwind CSS · Lucide · Vitest · Testing Library · oxlint
 
 The simulation engine is plain TypeScript and does not depend on the UI or the rendering layer.
 

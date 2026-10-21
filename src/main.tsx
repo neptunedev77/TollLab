@@ -1,4 +1,4 @@
-import { StrictMode } from 'react'
+import { lazy, StrictMode, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App.tsx'
 import './index.css'
@@ -8,8 +8,16 @@ if (!rootElement) {
   throw new Error('Elemento #root não encontrado em index.html')
 }
 
+// Galeria do design system só em desenvolvimento; em produção este ramo é eliminado do bundle.
+const Root =
+  import.meta.env.DEV && new URLSearchParams(window.location.search).has('gallery')
+    ? lazy(() => import('./dev/Gallery.tsx'))
+    : App
+
 createRoot(rootElement).render(
   <StrictMode>
-    <App />
+    <Suspense>
+      <Root />
+    </Suspense>
   </StrictMode>,
 )

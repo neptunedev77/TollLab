@@ -1,15 +1,26 @@
-import { APP_NAME } from './appInfo.ts'
+import { useId, useState } from 'react'
+import { TopBar } from './components/layout/TopBar.tsx'
+import { MapStage } from './components/map/MapStage.tsx'
+import { SidePanel } from './components/panels/SidePanel.tsx'
+import { ErrorBoundary } from './components/ui/ErrorBoundary.tsx'
 
-// Página mínima da Etapa 0. O layout real (mapa, painel, controlos) chega na Etapa 1.
 export function App() {
+  const panelId = useId()
+  const [panelOpen, setPanelOpen] = useState(true)
+
   return (
-    <main className="placeholder">
-      <h1>{APP_NAME}</h1>
-      <p>Plataforma de simulação de redes de portagens — em construção.</p>
-      <p className="note">
-        Rede esquemática de demonstração. Os resultados serão estimativas de um modelo, não dados
-        oficiais.
-      </p>
-    </main>
+    <div className="grid h-full grid-rows-[auto_minmax(0,1fr)] overflow-hidden">
+      <TopBar panelOpen={panelOpen} panelId={panelId} onTogglePanel={() => setPanelOpen((open) => !open)} />
+      <div className="flex min-h-0">
+        <main aria-label="Mapa da rede" className="relative min-w-0 flex-1">
+          <ErrorBoundary title="O mapa não pôde ser apresentado">
+            <MapStage />
+          </ErrorBoundary>
+        </main>
+        <ErrorBoundary title="O painel lateral não pôde ser apresentado">
+          <SidePanel id={panelId} open={panelOpen} />
+        </ErrorBoundary>
+      </div>
+    </div>
   )
 }

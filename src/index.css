@@ -1,23 +1,117 @@
+@import 'tailwindcss';
+
+/*
+ * Tokens visuais do TollLab.
+ * Tema único claro e calmo; as cores de estado (fluido, congestionado, alerta) são discretas para não
+ * competirem com a rede no mapa. Os nomes geram utilitários Tailwind (ex.: bg-surface, text-muted).
+ */
+@theme {
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, monospace;
+
+  /* Superfícies e texto */
+  --color-canvas: #eef1f4;
+  --color-canvas-grid: #e1e6eb;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f6f8fa;
+  --color-surface-raised: #ffffff;
+  --color-border: #dde3e9;
+  --color-border-strong: #c3ccd5;
+  --color-ink: #16202b;
+  --color-muted: #566473;
+  --color-subtle: #6b7987;
+
+  /* Interação */
+  --color-accent: #1f63c7;
+  --color-accent-hover: #1a55ab;
+  --color-accent-soft: #e6eefa;
+  --color-focus: #2f7df6;
+
+  /* Estado do tráfego e alertas */
+  --color-flow: #2e8b74;
+  --color-flow-soft: #e4f3ee;
+  --color-congestion: #c97a1c;
+  --color-congestion-soft: #fbf0e1;
+  --color-alert: #b9382f;
+  --color-alert-soft: #fbe9e7;
+
+  /* Hierarquia da rede (usada a partir da Etapa 3) */
+  --color-road-motorway: #3c4d63;
+  --color-road-alternative: #9aa7b5;
+  --color-road-node: #ffffff;
+  --color-road-city: #16202b;
+
+  --radius-control: 0.5rem;
+  --radius-card: 0.75rem;
+
+  --shadow-float: 0 1px 2px rgb(22 32 43 / 0.06), 0 4px 16px rgb(22 32 43 / 0.08);
+
+  --ease-calm: cubic-bezier(0.2, 0, 0, 1);
+}
+
 :root {
-  color-scheme: light dark;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  line-height: 1.5;
+  --topbar-height: 3rem;
+  --panel-width: 20rem;
 }
 
-body {
-  margin: 0;
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
+@media (min-width: 1440px) {
+  :root {
+    --panel-width: 22rem;
+  }
 }
 
-.placeholder {
-  max-width: 40rem;
-  padding: 2rem;
-  text-align: center;
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+
+  input[type='range'] {
+    accent-color: var(--color-accent);
+  }
 }
 
-.note {
-  font-size: 0.875rem;
-  opacity: 0.75;
+/* Respeitar prefers-reduced-motion em toda a aplicação. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes tooltip-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.map-grid {
+  background-color: var(--color-canvas);
+  background-image:
+    linear-gradient(var(--color-canvas-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-canvas-grid) 1px, transparent 1px);
+  background-size: 48px 48px;
 }
