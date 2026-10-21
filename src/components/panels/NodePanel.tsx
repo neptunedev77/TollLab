@@ -8,6 +8,7 @@ import { PanelHeader } from './PanelHeader.tsx'
 /** Painel de um nó selecionado: lista as ligações, que selecionam o troço respetivo. */
 export function NodePanel({ node }: { node: RoadNode }) {
   const dataset = useMapStore((state) => state.dataset)
+  const allTolls = useMapStore((state) => state.tolls)
   const showAlternatives = useMapStore((state) => state.layers.alternatives)
   const select = useMapStore((state) => state.select)
   const clearSelection = useMapStore((state) => state.clearSelection)
@@ -42,7 +43,7 @@ export function NodePanel({ node }: { node: RoadNode }) {
         <ul className="flex flex-col gap-1.5">
           {links.map((edge) => {
             const other = edge.from === node.id ? edge.to : edge.from
-            const tolls = dataset.tolls.filter((toll) => toll.edgeId === edge.id).length
+            const tolls = allTolls.filter((toll) => toll.edgeId === edge.id).length
             return (
               <li key={edge.id}>
                 <button

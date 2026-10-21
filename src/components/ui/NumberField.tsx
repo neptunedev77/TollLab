@@ -12,9 +12,24 @@ interface NumberFieldProps {
   step?: number
   error?: string
   hint?: string
+  /** `text` permite vírgula decimal (ex.: "1,85"), que `number` não aceita em todos os browsers. */
+  type?: 'number' | 'text'
+  inputMode?: 'decimal' | 'numeric'
 }
 
-export function NumberField({ label, value, onChange, unit, min, max, step, error, hint }: NumberFieldProps) {
+export function NumberField({
+  label,
+  value,
+  onChange,
+  unit,
+  min,
+  max,
+  step,
+  error,
+  hint,
+  type = 'number',
+  inputMode = 'decimal',
+}: NumberFieldProps) {
   const id = useId()
   const messageId = `${id}-message`
   const message = error ?? hint
@@ -36,8 +51,9 @@ export function NumberField({ label, value, onChange, unit, min, max, step, erro
       >
         <input
           id={id}
-          type="number"
-          inputMode="decimal"
+          type={type}
+          inputMode={inputMode}
+          autoComplete="off"
           value={value}
           min={min}
           max={max}

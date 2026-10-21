@@ -1,3 +1,5 @@
+import { PLACES } from './geo/places.ts'
+import { KM_PER_UNIT, MAP_PLANE, project, PROJECTION_DESCRIPTION } from './geo/projection.ts'
 import type {
   EdgeId,
   NetworkDataset,
@@ -11,14 +13,14 @@ import type {
 } from '../domain/types.ts'
 
 /*
- * Rede de demonstração esquemática inspirada no Norte de Portugal.
+ * Rede de demonstração do Norte de Portugal.
  *
+ * - Os nós ficam nas posições reais das sedes de município (Wikidata, ver `geo/places.ts`),
+ *   projetadas sobre o contorno de Portugal (Natural Earth, ver `geo/basemap.ts`).
  * - A conectividade segue de forma simplificada as ligações principais (A3, A4, A7, com A28 e A11)
- *   e vias nacionais alternativas. Não é uma representação cartográfica.
- * - As posições são esquemáticas: preservam a orientação relativa aproximada (norte em cima), não
- *   são coordenadas geográficas e não podem ser usadas para medir distâncias.
+ *   e vias nacionais alternativas. O traçado entre nós é uma curva aproximada, não a estrada real.
  * - Tempos, capacidades e tarifas são valores ilustrativos do modelo, não dados oficiais.
- * - Comprimentos ficam `null` porque não há fonte validada.
+ * - Comprimentos ficam `null`: não há fonte validada para o comprimento real de cada troço.
  */
 
 const nodes: RoadNode[] = [
@@ -27,7 +29,7 @@ const nodes: RoadNode[] = [
   { id: 'braga', name: 'Braga', kind: 'city' },
   { id: 'guimaraes', name: 'Guimarães', kind: 'city' },
   { id: 'fafe', name: 'Fafe', kind: 'city' },
-  { id: 'famalicao', name: 'Vila Nova de Famalicão', kind: 'city' },
+  { id: 'famalicao', name: 'Vila Nova de Famalicão', shortName: 'Famalicão', kind: 'city' },
   { id: 'vila-do-conde', name: 'Vila do Conde', kind: 'city' },
   { id: 'maia', name: 'Nó da Maia', kind: 'interchange' },
   { id: 'porto', name: 'Porto', kind: 'city' },
@@ -37,21 +39,13 @@ const nodes: RoadNode[] = [
   { id: 'braganca', name: 'Bragança', kind: 'city' },
 ]
 
-const nodePositions: Record<NodeId, SchematicPoint> = {
-  valenca: { x: 250, y: 60 },
-  'ponte-de-lima': { x: 285, y: 190 },
-  braga: { x: 365, y: 320 },
-  guimaraes: { x: 510, y: 370 },
-  fafe: { x: 635, y: 340 },
-  famalicao: { x: 330, y: 440 },
-  'vila-do-conde': { x: 150, y: 470 },
-  maia: { x: 235, y: 590 },
-  porto: { x: 190, y: 690 },
-  penafiel: { x: 415, y: 660 },
-  amarante: { x: 545, y: 610 },
-  'vila-real': { x: 735, y: 560 },
-  braganca: { x: 940, y: 220 },
-}
+const nodePositions: Record<NodeId, SchematicPoint> = Object.fromEntries(
+  nodes.map((node) => {
+    const place = PLACES[node.id]
+    if (!place) throw new Error(`Sem coordenadas para o nó "${node.id}"`)
+    return [node.id, project(place.coordinates)]
+  }),
+)
 
 /** Capacidades ilustrativas por sentido (veículos/hora). */
 const CAPACITY: Record<RoadClass, number> = { motorway: 4000, alternative: 1200 }
@@ -127,23 +121,23 @@ function bend(from: NodeId, to: NodeId, offset: number): SchematicPoint[] {
 }
 
 const edgeBends: Record<EdgeId, SchematicPoint[]> = {
-  'n14-porto-famalicao': bend('porto', 'famalicao', 45),
-  'n14-famalicao-braga': bend('famalicao', 'braga', 30),
-  'n201-braga-ponte-de-lima': bend('braga', 'ponte-de-lima', -30),
-  'n201-ponte-de-lima-valenca': bend('ponte-de-lima', 'valenca', -25),
-  'n13-porto-vila-do-conde': bend('porto', 'vila-do-conde', -35),
-  'n206-vila-do-conde-famalicao': bend('vila-do-conde', 'famalicao', 30),
-  'n206-famalicao-guimaraes': bend('famalicao', 'guimaraes', 35),
-  'n206-guimaraes-fafe': bend('guimaraes', 'fafe', 25),
-  'n101-braga-guimaraes': bend('braga', 'guimaraes', -30),
-  'n101-guimaraes-amarante': bend('guimaraes', 'amarante', -40),
-  'n15-porto-penafiel': bend('porto', 'penafiel', 35),
-  'n15-penafiel-amarante': bend('penafiel', 'amarante', 25),
-  'n15-amarante-vila-real': bend('amarante', 'vila-real', 30),
-  'n15-vila-real-braganca': bend('vila-real', 'braganca', 50),
+  'n14-porto-famalicao': bend('porto', 'famalicao', 15.7),
+  'n14-famalicao-braga': bend('famalicao', 'braga', 10.5),
+  'n201-braga-ponte-de-lima': bend('braga', 'ponte-de-lima', -10.5),
+  'n201-ponte-de-lima-valenca': bend('ponte-de-lima', 'valenca', -8.8),
+  'n13-porto-vila-do-conde': bend('porto', 'vila-do-conde', -12.2),
+  'n206-vila-do-conde-famalicao': bend('vila-do-conde', 'famalicao', 10.5),
+  'n206-famalicao-guimaraes': bend('famalicao', 'guimaraes', 12.2),
+  'n206-guimaraes-fafe': bend('guimaraes', 'fafe', 8.8),
+  'n101-braga-guimaraes': bend('braga', 'guimaraes', -10.5),
+  'n101-guimaraes-amarante': bend('guimaraes', 'amarante', -14),
+  'n15-porto-penafiel': bend('porto', 'penafiel', 12.2),
+  'n15-penafiel-amarante': bend('penafiel', 'amarante', 8.8),
+  'n15-amarante-vila-real': bend('amarante', 'vila-real', 10.5),
+  'n15-vila-real-braganca': bend('vila-real', 'braganca', 17.5),
   // Curvas suaves em algumas autoestradas, só por legibilidade.
-  'a4-vila-real-braganca': bend('vila-real', 'braganca', -20),
-  'a11-guimaraes-penafiel': bend('guimaraes', 'penafiel', 20),
+  'a4-vila-real-braganca': bend('vila-real', 'braganca', -7),
+  'a11-guimaraes-penafiel': bend('guimaraes', 'penafiel', 7),
 }
 
 /** Tarifa ilustrativa: as classes 2–4 usam múltiplos fixos da classe 1. */
@@ -209,13 +203,33 @@ const tolls: TollPoint[] = [
 
 export const demoNetwork: NetworkDataset = {
   id: 'demo-norte-v1',
-  name: 'Norte de Portugal (esquemático)',
+  name: 'Norte de Portugal',
   description: 'Rede de demonstração com ligações representativas da A3, A4 e A7 e vias alternativas.',
   disclaimer:
-    'Rede esquemática inspirada no Norte de Portugal. Não é cartográfica; tempos, capacidades e tarifas são ilustrativos.',
+    'Cidades nas posições reais sobre o contorno de Portugal; o traçado das estradas é aproximado e não é cartografia oficial. Tempos, capacidades e tarifas são ilustrativos.',
   illustrativeValues: true,
   network: { nodes, edges },
-  layout: { kind: 'schematic', bounds: { width: 1000, height: 760 }, nodePositions, edgeBends },
+  layout: { kind: 'projected', bounds: MAP_PLANE, nodePositions, edgeBends },
   tolls,
-  geography: null,
+  geography: {
+    projection: PROJECTION_DESCRIPTION,
+    kmPerUnit: KM_PER_UNIT,
+    roadGeometry: 'approximate',
+    sources: [
+      {
+        name: 'Natural Earth — Admin 0 Countries (1:50m)',
+        url: 'https://www.naturalearthdata.com/',
+        license: 'Domínio público',
+        usedFor: 'Contorno de Portugal continental e de Espanha',
+        attributionRequired: false,
+      },
+      {
+        name: 'Wikidata — coordenadas dos municípios (P625)',
+        url: 'https://www.wikidata.org/',
+        license: 'CC0 1.0',
+        usedFor: 'Posição das cidades e do Nó da Maia',
+        attributionRequired: false,
+      },
+    ],
+  },
 }

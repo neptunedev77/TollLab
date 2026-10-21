@@ -121,3 +121,33 @@ export function layoutBounds(dataset: NetworkDataset): Bounds {
     maxY: Math.max(...points.map((p) => p.y)),
   }
 }
+
+export interface ProjectionOnLine {
+  /** Fração do comprimento da linha, em [0, 1]. */
+  readonly t: number
+  readonly point: SchematicPoint
+  readonly distance: number
+}
+
+/** Ponto da polilinha mais próximo de `target`, com a sua fração do comprimento. */
+export function projectOntoPolyline(points: readonly SchematicPoint[], target: SchematicPoint): ProjectionOnLine | null {
+  const total = polylineLength(points)
+  if (points.length < 2 || total <= 0) return null
+  let best: ProjectionOnLine | null = null
+  let travelled = 0
+  for (let index = 1; index < points.length; index++) {
+    const a = points[index - 1] as SchematicPoint
+    const b = points[index] as SchematicPoint
+    const dx = b.x - a.x
+    const dy = b.y - a.y
+    const lengthSquared = dx * dx + dy * dy
+    const length = Math.sqrt(lengthSquared)
+    if (length === 0) continue
+    const local = Math.min(Math.max(((target.x - a.x) * dx + (target.y - a.y) * dy) / lengthSquared, 0), 1)
+    const point = { x: a.x + dx * local, y: a.y + dy * local }
+    const distance = Math.hypot(target.x - point.x, target.y - point.y)
+    if (!best || distance < best.distance) best = { t: (travelled + local * length) / total, point, distance }
+    travelled += length
+  }
+  return best
+}

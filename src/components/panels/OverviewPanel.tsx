@@ -1,23 +1,34 @@
 import { Car, Coins, Info, Plus, RotateCcw, Save, Ticket } from 'lucide-react'
 import type { NetworkLoadResult } from '../../data/loadNetwork.ts'
-import { summarizeNetwork } from '../../domain/summary.ts'
+import type { TollPoint } from '../../domain/types.ts'
 import { Button } from '../ui/Button.tsx'
 import { Metric } from '../ui/Metric.tsx'
 
-const TOLL_EDITING_UNAVAILABLE = 'A edição de portagens ainda não está disponível'
+const NO_NETWORK = 'Indisponível: a rede tem dados inválidos'
 const SCENARIOS_UNAVAILABLE = 'Os cenários ainda não estão disponíveis'
 const NOTHING_TO_RESET = 'Ainda não há alterações para repor'
 
+interface OverviewEditing {
+  readonly tolls: readonly TollPoint[]
+  /** Há alterações aos pórticos em relação à configuração inicial. */
+  readonly modified: boolean
+  readonly onAddToll: () => void
+  readonly onReset: () => void
+}
+
 interface OverviewPanelProps {
   networkLoad: NetworkLoadResult
+  /** Ausente quando a rede é inválida (sem edição possível). */
+  editing?: OverviewEditing
 }
 
 /**
- * Estado "sem seleção" do painel lateral. As contagens vêm dos dados da rede; tráfego e receita
+ * Estado "sem seleção" do painel lateral. As contagens vêm dos pórticos atuais; tráfego e receita
  * ficam vazios até haver simulação, em vez de mostrarem números inventados.
  */
-export function OverviewPanel({ networkLoad }: OverviewPanelProps) {
-  const summary = networkLoad.status === 'ready' ? summarizeNetwork(networkLoad.dataset) : null
+export function OverviewPanel({ networkLoad, editing }: OverviewPanelProps) {
+  const tolls = editing?.tolls ?? (networkLoad.status === 'ready' ? networkLoad.dataset.tolls : null)
+  const activeTolls = tolls?.filter((toll) => toll.active).length
 
   return (
     <div className="flex flex-col gap-5 p-5">
@@ -26,14 +37,14 @@ export function OverviewPanel({ networkLoad }: OverviewPanelProps) {
           <h2 id="overview-title" className="text-lg font-extrabold tracking-tight">
             Visão geral
           </h2>
-          <p className="text-xs text-muted">Seleciona uma cidade ou um troço no mapa para ver os detalhes.</p>
+          <p className="text-xs text-muted">Seleciona uma cidade, um troço ou um pórtico no mapa para ver os detalhes.</p>
         </div>
 
         <dl className="grid grid-cols-2 gap-2">
           <Metric
             label="Portagens ativas"
-            value={summary ? String(summary.activeTolls) : undefined}
-            hint={summary ? `de ${summary.tolls} pórticos` : undefined}
+            value={activeTolls === undefined ? undefined : String(activeTolls)}
+            hint={tolls ? `de ${tolls.length} pórticos` : undefined}
             icon={<Ticket className="size-4" />}
             tone="sky"
           />
@@ -57,7 +68,8 @@ export function OverviewPanel({ networkLoad }: OverviewPanelProps) {
           variant="primary"
           size="lg"
           icon={<Plus className="size-4" strokeWidth={2.6} />}
-          unavailableReason={TOLL_EDITING_UNAVAILABLE}
+          unavailableReason={editing ? undefined : NO_NETWORK}
+          onClick={editing?.onAddToll}
           className="w-full"
         >
           Adicionar portagem
@@ -65,7 +77,12 @@ export function OverviewPanel({ networkLoad }: OverviewPanelProps) {
         <Button icon={<Save className="size-4" />} unavailableReason={SCENARIOS_UNAVAILABLE} className="w-full">
           Guardar cenário
         </Button>
-        <Button icon={<RotateCcw className="size-4" />} unavailableReason={NOTHING_TO_RESET} className="w-full">
+        <Button
+          icon={<RotateCcw className="size-4" />}
+          unavailableReason={editing ? (editing.modified ? undefined : NOTHING_TO_RESET) : NO_NETWORK}
+          onClick={editing?.onReset}
+          className="w-full"
+        >
           Repor configuração
         </Button>
       </section>

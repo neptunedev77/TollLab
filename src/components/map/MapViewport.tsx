@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
-import { useMapStoreApi } from '../../store/useMapStore.ts'
+import { useMapStore, useMapStoreApi } from '../../store/useMapStore.ts'
 import { cx } from '../../utils/cx.ts'
 import { isWebGLAvailable } from '../scene3d/webgl.ts'
 import { ErrorState, LoadingState } from '../ui/StateViews.tsx'
@@ -22,6 +22,9 @@ export function MapViewport() {
   const [dragging, setDragging] = useState(false)
   const [webgl] = useState(isWebGLAvailable)
   const helpId = useId()
+  const draggingToll = useMapStore((state) => state.drag !== null)
+  const placing = useMapStore((state) => state.mode.kind === 'placing')
+  const hovering = useMapStore((state) => state.hover !== null)
 
   useEffect(() => {
     const element = containerRef.current
@@ -55,6 +58,8 @@ export function MapViewport() {
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return
     dragDistanceRef.current = 0
+    // Um pórtico a ser arrastado tem prioridade sobre o pan (o evento 3D chega primeiro).
+    if (store.getState().drag) return
     let lastX = event.clientX
     let lastY = event.clientY
 
@@ -92,7 +97,10 @@ export function MapViewport() {
       '-': () => state.zoomBy(1 / ZOOM_STEP),
       '0': () => state.recenter(),
       Home: () => state.recenter(),
-      Escape: () => state.clearSelection(),
+      Escape: () => (state.mode.kind === 'placing' ? state.cancelPlacement() : state.clearSelection()),
+      Delete: () => {
+        if (state.selection?.kind === 'toll') state.removeToll(state.selection.id)
+      },
     }
     const action = actions[event.key]
     if (action) {
@@ -117,7 +125,7 @@ export function MapViewport() {
       className={cx(
         'absolute inset-0 touch-none outline-none select-none',
         'focus-visible:shadow-[inset_0_0_0_3px_var(--color-focus)]',
-        dragging ? 'cursor-grabbing' : 'cursor-grab',
+        draggingToll || dragging ? 'cursor-grabbing' : placing ? 'cursor-crosshair' : hovering ? 'cursor-pointer' : 'cursor-grab',
       )}
     >
       {webgl ? (
@@ -141,8 +149,9 @@ export function MapViewport() {
       <MapLabels />
       <p id={helpId} className="sr-only">
         Arrasta para mover o mapa e usa a roda do rato para aproximar ou afastar. Com o mapa focado: setas para
-        mover, mais e menos para zoom, zero para recentrar e Escape para limpar a seleção. Os nomes das cidades
-        são botões que selecionam a cidade.
+        mover, mais e menos para zoom, zero para recentrar, Delete para remover o pórtico selecionado e Escape
+        para limpar a seleção. Os nomes das cidades são botões que selecionam a cidade. Os pórticos podem ser
+        arrastados ao longo das estradas; Escape cancela o movimento. Ctrl+Z anula a última alteração.
       </p>
     </div>
   )

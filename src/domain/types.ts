@@ -3,9 +3,9 @@
  *
  * Três camadas que nunca se misturam:
  *  - Topologia (`RoadNetwork`): nós e troços identificados por ID, sem coordenadas.
- *  - Esquema de apresentação (`SchematicLayout`): coordenadas num plano esquemático arbitrário.
- *    Não são coordenadas geográficas nem de ecrã.
- *  - Geografia (`geography`): `null` enquanto não houver dados reais com fonte e licença.
+ *  - Plano do mapa (`SchematicLayout`): coordenadas de apresentação num plano 2D (esquemático ou
+ *    projetado a partir de coordenadas geográficas). Não são coordenadas de ecrã.
+ *  - Geografia (`geography`): fontes, licenças e projeção dos dados geográficos usados, ou `null`.
  */
 
 export type NodeId = string
@@ -26,6 +26,8 @@ export type NodeKind = 'city' | 'interchange'
 export interface RoadNode {
   readonly id: NodeId
   readonly name: string
+  /** Nome curto para o rótulo no mapa, quando o nome completo é longo. */
+  readonly shortName?: string
   readonly kind: NodeKind
 }
 
@@ -57,14 +59,18 @@ export interface RoadNetwork {
 // ---------------------------------------------------------------------------
 // Esquema de apresentação
 
-/** Ponto no plano esquemático (unidades arbitrárias; y cresce para baixo). */
+/** Ponto no plano do mapa (y cresce para baixo, norte em cima). */
 export interface SchematicPoint {
   readonly x: number
   readonly y: number
 }
 
 export interface SchematicLayout {
-  readonly kind: 'schematic'
+  /**
+   * `schematic`: posições arbitrárias. `projected`: posições dos nós projetadas de coordenadas
+   * geográficas reais (o traçado entre nós continua aproximado).
+   */
+  readonly kind: 'schematic' | 'projected'
   /** Plano de referência, usado para enquadrar o mapa. */
   readonly bounds: { readonly width: number; readonly height: number }
   readonly nodePositions: Readonly<Record<NodeId, SchematicPoint>>
@@ -112,8 +118,25 @@ export interface NetworkDataset {
   readonly network: RoadNetwork
   readonly layout: SchematicLayout
   readonly tolls: readonly TollPoint[]
-  /** Sem dados geográficos reais nesta versão. */
-  readonly geography: null
+  readonly geography: GeographyInfo | null
+}
+
+export interface DataSource {
+  readonly name: string
+  readonly url: string
+  readonly license: string
+  /** Para que é usada a fonte (ex.: "contorno de Portugal"). */
+  readonly usedFor: string
+  readonly attributionRequired: boolean
+}
+
+export interface GeographyInfo {
+  readonly projection: string
+  /** Quilómetros por unidade do plano do mapa (aproximado; a projeção é simples). */
+  readonly kmPerUnit: number
+  /** O traçado dos troços entre nós é aproximado (não segue a estrada real). */
+  readonly roadGeometry: 'approximate'
+  readonly sources: readonly DataSource[]
 }
 
 // ---------------------------------------------------------------------------

@@ -22,7 +22,7 @@ export function App({ mapStoreOptions }: AppProps = {}) {
     <div className="flex min-h-0 flex-1">
       <main
         aria-label="Mapa da rede"
-        className="relative min-w-0 flex-1 overflow-hidden rounded-island bg-map shadow-island ring-1 ring-border/80"
+        className="relative min-w-0 flex-1 overflow-hidden rounded-island bg-sea shadow-island ring-1 ring-border/80"
       >
         <ErrorBoundary title="O mapa não pôde ser apresentado">
           <MapStage networkLoad={networkLoad} />

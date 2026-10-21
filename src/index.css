@@ -14,6 +14,8 @@
   --color-canvas: #f3eee6;
   --color-canvas-grid: #e9e2d6;
   --color-map: #faf6ef;
+  /* Mar do mapa base (espelhado em scene3d/palette.ts). */
+  --color-sea: #dce9ef;
   --color-surface: #fffdf9;
   --color-surface-muted: #f7f2ea;
   --color-surface-sunken: #efe8dc;

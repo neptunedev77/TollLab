@@ -1,5 +1,6 @@
 import type { NetworkLoadResult } from '../../data/loadNetwork.ts'
 import { ErrorState } from '../ui/StateViews.tsx'
+import { EditorShortcuts, NoticeToast, PlacementBanner } from './EditorOverlays.tsx'
 import { MapControls } from './MapControls.tsx'
 import { MapLegend } from './MapLegend.tsx'
 import { MapViewport } from './MapViewport.tsx'
@@ -29,7 +30,7 @@ export function MapStage({ networkLoad }: MapStageProps) {
   }
 
   return (
-    <div className="relative h-full w-full bg-map">
+    <div className="relative h-full w-full bg-sea">
       <MapViewport />
 
       <div className="absolute top-4 left-4">
@@ -44,9 +45,20 @@ export function MapStage({ networkLoad }: MapStageProps) {
         <MapLegend />
       </div>
 
+      {/* Por baixo do aviso do mapa, para não colidirem em mapas estreitos. */}
+      <div className="absolute top-16 right-20 left-4 flex justify-center">
+        <PlacementBanner />
+      </div>
+
+      <div className="absolute right-4 bottom-[5.25rem] left-4">
+        <NoticeToast />
+      </div>
+
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
         <SimulationControls />
       </div>
+
+      <EditorShortcuts />
     </div>
   )
 }

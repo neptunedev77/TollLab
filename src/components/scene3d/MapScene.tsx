@@ -1,16 +1,21 @@
 import { Canvas, useThree, type ThreeEvent } from '@react-three/fiber'
 import { useEffect, useMemo, useState, type RefObject } from 'react'
-import { BufferAttribute, BufferGeometry, DoubleSide, Shape, type OrthographicCamera } from 'three'
-import { edgeCurve, layoutBounds, pointAlong } from '../../domain/geometry.ts'
-import type { NetworkDataset, RoadEdge, RoadNode, SchematicPoint, TollPoint } from '../../domain/types.ts'
+import { BufferAttribute, BufferGeometry, DoubleSide, Shape, Vector2, type OrthographicCamera } from 'three'
+import { PORTUGAL_MAINLAND, SPAIN_CLIPPED } from '../../data/geo/basemap.ts'
+import { project } from '../../data/geo/projection.ts'
+import { edgeCurve, pointAlong, projectOntoPolyline } from '../../domain/geometry.ts'
+import { snapToNetwork } from '../../domain/tolls.ts'
+import type { EdgeId, RoadEdge, RoadNode, SchematicPoint, TollPoint } from '../../domain/types.ts'
 import type { MapStore, Selection } from '../../store/mapStore.ts'
 import { useMapStore, useMapStoreApi } from '../../store/useMapStore.ts'
-import { TILT_RAD } from '../map/viewMath.ts'
-import { ROAD_WIDTH, SCENE_COLORS } from './palette.ts'
+import { screenToWorld, TILT_RAD } from '../map/viewMath.ts'
+import { NODE_RADIUS, ROAD_WIDTH, SCENE_COLORS } from './palette.ts'
 import { buildRibbon } from './ribbon.ts'
 
 /** Arrastos maiores do que isto (px) contam como pan, não como clique. */
 const CLICK_TOLERANCE_PX = 5
+/** Distância máxima (px no ecrã) para um pórtico arrastado encaixar numa estrada. */
+const SNAP_RADIUS_PX = 36
 const CAMERA_DISTANCE = 2000
 
 interface MapSceneProps {
@@ -34,7 +39,8 @@ export default function MapScene({ dragDistanceRef }: MapSceneProps) {
       gl={{ antialias: true, alpha: true }}
       camera={{ near: 1, far: CAMERA_DISTANCE * 3, position: [0, CAMERA_DISTANCE, 0], zoom: 1 }}
       onPointerMissed={() => {
-        if ((dragDistanceRef.current ?? 0) <= CLICK_TOLERANCE_PX) store.getState().clearSelection()
+        const state = store.getState()
+        if ((dragDistanceRef.current ?? 0) <= CLICK_TOLERANCE_PX && state.mode.kind === 'idle') state.clearSelection()
       }}
       aria-hidden="true"
     >
@@ -74,19 +80,24 @@ function CameraRig({ store }: { store: MapStore }) {
   return null
 }
 
+interface Handlers {
+  onClick: (event: ThreeEvent<MouseEvent>) => void
+  onPointerOver: (event: ThreeEvent<PointerEvent>) => void
+  onPointerOut: () => void
+}
+
 function SceneContent() {
+  const store = useMapStoreApi()
   const dataset = useMapStore((state) => state.dataset)
+  const tolls = useMapStore((state) => state.tolls)
   const layers = useMapStore((state) => state.layers)
   const selection = useMapStore((state) => state.selection)
-  const select = useMapStore((state) => state.select)
-  const [hover, setHover] = useState<Selection | null>(null)
-
-  useEffect(() => {
-    document.body.style.cursor = hover ? 'pointer' : ''
-    return () => {
-      document.body.style.cursor = ''
-    }
-  }, [hover])
+  const hover = useMapStore((state) => state.hover)
+  const placing = useMapStore((state) => state.mode.kind === 'placing')
+  const draggingId = useMapStore((state) => state.drag?.tollId ?? null)
+  const [ghostState, setGhost] = useState<{ edgeId: EdgeId; position: number } | null>(null)
+  // O fantasma só existe em modo de colocação (derivado, sem efeito para o limpar).
+  const ghost = placing ? ghostState : null
 
   const curves = useMemo(() => {
     const map = new Map<string, readonly SchematicPoint[]>()
@@ -98,27 +109,58 @@ function SceneContent() {
   }, [dataset])
 
   const visibleEdges = dataset.network.edges.filter((edge) => edge.roadClass === 'motorway' || layers.alternatives)
+  const visibleEdgeIds = new Set(visibleEdges.map((edge) => edge.id))
   // Vias alternativas por baixo das autoestradas.
   const ordered = [...visibleEdges].sort((a, b) => (a.roadClass === b.roadClass ? 0 : a.roadClass === 'alternative' ? -1 : 1))
 
-  const isSelected = (kind: Selection['kind'], id: string) => selection?.kind === kind && selection.id === id
-  const isHovered = (kind: Selection['kind'], id: string) => hover?.kind === kind && hover.id === id
+  const is = (target: Selection | null, kind: Selection['kind'], id: string) => target?.kind === kind && target.id === id
 
   const handlers = (target: Selection): Handlers => ({
-    onClick: (event: ThreeEvent<MouseEvent>) => {
+    onClick: (event) => {
       event.stopPropagation()
-      if (event.delta <= CLICK_TOLERANCE_PX) select(target)
+      if (event.delta > CLICK_TOLERANCE_PX) return
+      store.getState().select(target)
     },
-    onPointerOver: (event: ThreeEvent<PointerEvent>) => {
+    onPointerOver: (event) => {
       event.stopPropagation()
-      setHover(target)
+      store.getState().setHover(target)
     },
-    onPointerOut: () => setHover((current) => (current?.id === target.id ? null : current)),
+    onPointerOut: () => {
+      if (is(store.getState().hover, target.kind, target.id)) store.getState().setHover(null)
+    },
   })
+
+  /** Em modo de colocação, a estrada sob o cursor recebe o pórtico no ponto clicado. */
+  const roadHandlers = (edge: RoadEdge, curve: readonly SchematicPoint[]): Handlers & {
+    onPointerMove: (event: ThreeEvent<PointerEvent>) => void
+  } => {
+    const base = handlers({ kind: 'edge', id: edge.id })
+    const positionAt = (event: ThreeEvent<PointerEvent | MouseEvent>) =>
+      projectOntoPolyline(curve, { x: event.point.x, y: event.point.z })?.t ?? 0.5
+    return {
+      ...base,
+      onClick: (event) => {
+        if (store.getState().mode.kind !== 'placing') return base.onClick(event)
+        event.stopPropagation()
+        if (event.delta > CLICK_TOLERANCE_PX) return
+        setGhost(null)
+        store.getState().addToll(edge.id, positionAt(event))
+      },
+      onPointerMove: (event) => {
+        if (store.getState().mode.kind !== 'placing') return
+        event.stopPropagation()
+        setGhost({ edgeId: edge.id, position: positionAt(event) })
+      },
+      onPointerOut: () => {
+        base.onPointerOut()
+        setGhost((current) => (current?.edgeId === edge.id ? null : current))
+      },
+    }
+  }
 
   return (
     <>
-      <Board dataset={dataset} />
+      <Basemap />
       {ordered.map((edge) => {
         const curve = curves.get(edge.id)
         if (!curve) return null
@@ -127,18 +169,37 @@ function SceneContent() {
             key={edge.id}
             edge={edge}
             curve={curve}
-            selected={isSelected('edge', edge.id)}
-            hovered={isHovered('edge', edge.id)}
-            handlers={handlers({ kind: 'edge', id: edge.id })}
+            selected={is(selection, 'edge', edge.id)}
+            hovered={is(hover, 'edge', edge.id)}
+            handlers={roadHandlers(edge, curve)}
           />
         )
       })}
       {layers.tolls &&
-        dataset.tolls.map((toll) => {
-          const edge = visibleEdges.find((candidate) => candidate.id === toll.edgeId)
+        tolls.map((toll) => {
+          const edge = visibleEdgeIds.has(toll.edgeId) ? dataset.network.edges.find((e) => e.id === toll.edgeId) : undefined
           const curve = curves.get(toll.edgeId)
-          return edge && curve ? <Gantry key={toll.id} toll={toll} edge={edge} curve={curve} /> : null
+          if (!edge || !curve) return null
+          return (
+            <Gantry
+              key={toll.id}
+              toll={toll}
+              edge={edge}
+              curve={curve}
+              selected={is(selection, 'toll', toll.id)}
+              hovered={is(hover, 'toll', toll.id)}
+              dragging={draggingId === toll.id}
+              interactive={!placing}
+              handlers={handlers({ kind: 'toll', id: toll.id })}
+            />
+          )
         })}
+      {ghost &&
+        (() => {
+          const edge = dataset.network.edges.find((candidate) => candidate.id === ghost.edgeId)
+          const curve = curves.get(ghost.edgeId)
+          return edge && curve ? <GantryShape edge={edge} curve={curve} position={ghost.position} color={SCENE_COLORS.selected} opacity={0.55} /> : null
+        })()}
       {dataset.network.nodes.map((node) => {
         const position = dataset.layout.nodePositions[node.id]
         if (!position) return null
@@ -147,20 +208,14 @@ function SceneContent() {
             key={node.id}
             node={node}
             position={position}
-            selected={isSelected('node', node.id)}
-            hovered={isHovered('node', node.id)}
+            selected={is(selection, 'node', node.id)}
+            hovered={is(hover, 'node', node.id)}
             handlers={handlers({ kind: 'node', id: node.id })}
           />
         )
       })}
     </>
   )
-}
-
-interface Handlers {
-  onClick: (event: ThreeEvent<MouseEvent>) => void
-  onPointerOver: (event: ThreeEvent<PointerEvent>) => void
-  onPointerOut: () => void
 }
 
 function useRibbon(curve: readonly SchematicPoint[], width: number, elevation: number) {
@@ -187,7 +242,7 @@ function Road({
   curve: readonly SchematicPoint[]
   selected: boolean
   hovered: boolean
-  handlers: Handlers
+  handlers: Handlers & { onPointerMove: (event: ThreeEvent<PointerEvent>) => void }
 }) {
   const motorway = edge.roadClass === 'motorway'
   const widths = motorway ? ROAD_WIDTH.motorway : ROAD_WIDTH.alternative
@@ -239,84 +294,195 @@ function NodeMarker({
   handlers: Handlers
 }) {
   const city = node.kind === 'city'
-  const radius = city ? 9 : 6
+  const radius = city ? NODE_RADIUS.city : NODE_RADIUS.interchange
   const scale = selected ? 1.25 : hovered ? 1.12 : 1
   const ring = selected ? SCENE_COLORS.selected : city ? SCENE_COLORS.cityRing : SCENE_COLORS.interchangeRing
 
   return (
     <group position={[position.x, 0, position.y]} scale={[scale, 1, scale]} {...handlers}>
-      <mesh position={[0, 2, 0]}>
-        <cylinderGeometry args={[radius, radius, 2.4, 40]} />
+      <mesh position={[0, 1.6, 0]}>
+        <cylinderGeometry args={[radius, radius, 1.8, 40]} />
         <meshLambertMaterial color={ring} />
       </mesh>
-      <mesh position={[0, 3.3, 0]}>
-        <cylinderGeometry args={[radius * 0.62, radius * 0.62, 0.4, 40]} />
+      <mesh position={[0, 2.6, 0]}>
+        <cylinderGeometry args={[radius * 0.6, radius * 0.6, 0.3, 40]} />
         <meshBasicMaterial color={city ? SCENE_COLORS.cityFill : SCENE_COLORS.interchangeFill} />
       </mesh>
     </group>
   )
 }
 
-/** Pórtico 3D simples: dois postes e uma travessa, perpendicular à estrada. */
-function Gantry({ toll, edge, curve }: { toll: TollPoint; edge: RoadEdge; curve: readonly SchematicPoint[] }) {
-  const anchor = pointAlong(curve, toll.position)
+/** Geometria do pórtico: dois postes e uma travessa, perpendicular à estrada no ponto `position`. */
+function GantryShape({
+  edge,
+  curve,
+  position,
+  color,
+  opacity = 1,
+  scale = 1,
+}: {
+  edge: RoadEdge
+  curve: readonly SchematicPoint[]
+  position: number
+  color: string
+  opacity?: number
+  scale?: number
+}) {
+  const anchor = pointAlong(curve, position)
   if (!anchor) return null
-  const color = toll.active ? SCENE_COLORS.tollActive : SCENE_COLORS.tollInactive
-  const half = (edge.roadClass === 'motorway' ? ROAD_WIDTH.motorway.casing : ROAD_WIDTH.alternative.casing) / 2 + 2.5
-  const height = 9
+  const half = (edge.roadClass === 'motorway' ? ROAD_WIDTH.motorway.casing : ROAD_WIDTH.alternative.casing) / 2 + 1.6
+  const height = 5.5
   const angle = Math.atan2(-anchor.tangent.y, anchor.tangent.x)
+  const material = <meshLambertMaterial color={color} transparent={opacity < 1} opacity={opacity} />
 
   return (
-    <group position={[anchor.point.x, 0, anchor.point.y]} rotation={[0, angle, 0]}>
+    <group position={[anchor.point.x, 0, anchor.point.y]} rotation={[0, angle, 0]} scale={scale}>
       {[-half, half].map((z) => (
         <mesh key={z} position={[0, height / 2, z]}>
-          <boxGeometry args={[1.8, height, 1.8]} />
-          <meshLambertMaterial color={color} />
+          <boxGeometry args={[1.1, height, 1.1]} />
+          {material}
         </mesh>
       ))}
       <mesh position={[0, height, 0]}>
-        <boxGeometry args={[2.4, 2.2, half * 2 + 1.8]} />
-        <meshLambertMaterial color={color} />
+        <boxGeometry args={[1.5, 1.4, half * 2 + 1.1]} />
+        {material}
       </mesh>
     </group>
   )
 }
 
-/** Tabuleiro arredondado por baixo da rede, para a dar um ar de "mesa de trabalho". */
-function Board({ dataset }: { dataset: NetworkDataset }) {
-  const shape = useMemo(() => {
-    const bounds = layoutBounds(dataset)
-    const margin = 70
-    const radius = 60
-    const x0 = bounds.minX - margin
-    const y0 = bounds.minY - margin
-    const x1 = bounds.maxX + margin
-    const y1 = bounds.maxY + margin
-    const result = new Shape()
-    result.moveTo(x0 + radius, y0)
-    result.lineTo(x1 - radius, y0)
-    result.quadraticCurveTo(x1, y0, x1, y0 + radius)
-    result.lineTo(x1, y1 - radius)
-    result.quadraticCurveTo(x1, y1, x1 - radius, y1)
-    result.lineTo(x0 + radius, y1)
-    result.quadraticCurveTo(x0, y1, x0, y1 - radius)
-    result.lineTo(x0, y0 + radius)
-    result.quadraticCurveTo(x0, y0, x0 + radius, y0)
-    return result
-  }, [dataset])
+/** Pórtico interativo: clicar seleciona; arrastar move-o ao longo das estradas (Esc cancela). */
+function Gantry({
+  toll,
+  edge,
+  curve,
+  selected,
+  hovered,
+  dragging,
+  interactive,
+  handlers,
+}: {
+  toll: TollPoint
+  edge: RoadEdge
+  curve: readonly SchematicPoint[]
+  selected: boolean
+  hovered: boolean
+  dragging: boolean
+  interactive: boolean
+  handlers: Handlers
+}) {
+  const store = useMapStoreApi()
+  const anchor = pointAlong(curve, toll.position)
+  if (!anchor) return null
 
-  // A forma é desenhada no plano XY. Rodar +90° em X leva (x, y, z) → (x, −z, y): o y do esquema
+  const color = selected || dragging ? SCENE_COLORS.selected : toll.active ? SCENE_COLORS.tollActive : SCENE_COLORS.tollInactive
+
+  const onPointerDown = (event: ThreeEvent<PointerEvent>) => {
+    if (!interactive || event.nativeEvent.button !== 0) return
+    event.stopPropagation()
+    const canvas = event.nativeEvent.target as HTMLElement
+    const rect = canvas.getBoundingClientRect()
+    const state = store.getState()
+    state.beginTollDrag(toll.id)
+
+    const onMove = (move: PointerEvent) => {
+      const { view, viewport, layers, dataset } = store.getState()
+      if (!view || !viewport) return
+      const world = screenToWorld({ x: move.clientX - rect.left, y: move.clientY - rect.top }, view, viewport)
+      const snap = snapToNetwork(dataset, world, SNAP_RADIUS_PX / view.zoom, (candidate) =>
+        candidate.roadClass === 'motorway' || layers.alternatives,
+      )
+      if (snap) store.getState().dragTollTo(snap.edgeId, snap.position)
+    }
+    const cleanup = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('keydown', onKey, true)
+    }
+    const onUp = () => {
+      cleanup()
+      store.getState().endTollDrag(true)
+    }
+    const onKey = (key: KeyboardEvent) => {
+      if (key.key !== 'Escape') return
+      key.stopPropagation()
+      cleanup()
+      store.getState().endTollDrag(false)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('keydown', onKey, true)
+  }
+
+  return (
+    <group>
+      {(selected || dragging) && (
+        <mesh position={[anchor.point.x, 0.15, anchor.point.y]} rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[9, 40]} />
+          <meshBasicMaterial color={SCENE_COLORS.selectedGlow} transparent opacity={0.2} depthWrite={false} />
+        </mesh>
+      )}
+      <GantryShape edge={edge} curve={curve} position={toll.position} color={color} scale={hovered || selected ? 1.15 : 1} />
+      {/* Área de clique invisível, maior do que o pórtico. */}
+      <mesh
+        position={[anchor.point.x, 4, anchor.point.y]}
+        onPointerDown={onPointerDown}
+        onClick={handlers.onClick}
+        onPointerOver={handlers.onPointerOver}
+        onPointerOut={handlers.onPointerOut}
+      >
+        <boxGeometry args={[10, 9, 10]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+    </group>
+  )
+}
+
+const PORTUGAL_POINTS = PORTUGAL_MAINLAND.map(project)
+const SPAIN_POINTS = SPAIN_CLIPPED.map(project)
+
+function shapeFrom(points: readonly SchematicPoint[]): Shape {
+  return new Shape(points.map((point) => new Vector2(point.x, point.y)))
+}
+
+function closed(points: readonly SchematicPoint[]): SchematicPoint[] {
+  const first = points[0]
+  return first ? [...points, first] : []
+}
+
+/**
+ * Mapa base: Portugal continental e Espanha (Natural Earth) sobre o mar, com um halo suave na
+ * costa e uma linha fina de costa/fronteira. O mar é o fundo CSS do contentor (canvas transparente).
+ */
+function Basemap() {
+  const portugal = useMemo(() => shapeFrom(PORTUGAL_POINTS), [])
+  const spain = useMemo(() => shapeFrom(SPAIN_POINTS), [])
+  const halo = useRibbon(useMemo(() => closed(PORTUGAL_POINTS), []), 16, -1.2)
+  const spainHalo = useRibbon(useMemo(() => closed(SPAIN_POINTS), []), 16, -1.2)
+  const outline = useRibbon(useMemo(() => closed(PORTUGAL_POINTS), []), 1.4, -0.2)
+
+  // As formas são desenhadas no plano XY. Rodar +90° em X leva (x, y, z) → (x, −z, y): o y do mapa
   // passa a z no chão e o z local passa a profundidade (abaixo das estradas).
   return (
-    <group rotation={[Math.PI / 2, 0, 0]}>
-      {/* "Lábio" inferior do tabuleiro, ligeiramente deslocado para baixo e para a direita. */}
-      <mesh position={[4, 7, 0.8]}>
-        <shapeGeometry args={[shape, 24]} />
-        <meshBasicMaterial color={SCENE_COLORS.boardEdge} side={DoubleSide} />
+    <group>
+      <mesh geometry={halo}>
+        <meshBasicMaterial color={SCENE_COLORS.coastHalo} side={DoubleSide} />
       </mesh>
-      <mesh position={[0, 0, 0.5]}>
-        <shapeGeometry args={[shape, 24]} />
-        <meshBasicMaterial color={SCENE_COLORS.board} side={DoubleSide} />
+      <mesh geometry={spainHalo}>
+        <meshBasicMaterial color={SCENE_COLORS.coastHalo} side={DoubleSide} />
+      </mesh>
+      <group rotation={[Math.PI / 2, 0, 0]}>
+        <mesh position={[0, 0, 0.9]}>
+          <shapeGeometry args={[spain]} />
+          <meshBasicMaterial color={SCENE_COLORS.spain} side={DoubleSide} />
+        </mesh>
+        <mesh position={[0, 0, 0.6]}>
+          <shapeGeometry args={[portugal]} />
+          <meshBasicMaterial color={SCENE_COLORS.portugal} side={DoubleSide} />
+        </mesh>
+      </group>
+      <mesh geometry={outline}>
+        <meshBasicMaterial color={SCENE_COLORS.coastline} side={DoubleSide} />
       </mesh>
     </group>
   )

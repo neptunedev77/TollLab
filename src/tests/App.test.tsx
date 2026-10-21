@@ -34,7 +34,7 @@ describe('App (layout principal)', () => {
   it('identifica o mapa como esquemático e não mostra números inventados', () => {
     renderApp()
 
-    expect(screen.getByText(/Mapa esquemático/)).toHaveTextContent('não cartográfico')
+    expect(screen.getByText(/Cidades em posições reais/)).toHaveTextContent('não é cartografia oficial')
     // Tráfego e receita ficam vazios até haver simulação.
     expect(screen.getAllByText('Sem dados')).toHaveLength(2)
   })
@@ -68,14 +68,15 @@ describe('App (layout principal)', () => {
     const user = userEvent.setup()
     renderApp()
 
-    const add = screen.getByRole('button', { name: 'Adicionar portagem' })
-    expect(add).toHaveAttribute('aria-disabled', 'true')
-    expect(add).not.toBeDisabled()
-    expect(add).toHaveAccessibleDescription(/edição de portagens ainda não está disponível/)
+    const save = screen.getByRole('button', { name: 'Guardar cenário' })
+    expect(save).toHaveAttribute('aria-disabled', 'true')
+    expect(save).not.toBeDisabled()
+    expect(save).toHaveAccessibleDescription(/cenários ainda não estão disponíveis/)
+    expect(screen.getByRole('button', { name: 'Repor configuração' })).toHaveAccessibleDescription(/não há alterações/)
 
-    add.focus()
+    save.focus()
     await user.keyboard('{Enter}')
-    expect(add).toHaveFocus()
+    expect(save).toHaveFocus()
   })
 
   it('permite chegar ao mapa e aos seus controlos só com o teclado', async () => {
@@ -88,7 +89,8 @@ describe('App (layout principal)', () => {
     expect(screen.getByRole('application', { name: 'Mapa interativo da rede' })).toHaveFocus()
     // A seguir vêm os rótulos das cidades, que são botões.
     await user.tab()
-    expect(document.activeElement).toHaveTextContent('Valença')
+    expect(document.activeElement).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getAllByRole('button', { pressed: false })).toContain(document.activeElement)
   })
 })
 

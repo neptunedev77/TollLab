@@ -13,8 +13,9 @@ export const TILT_RAD = (28 * Math.PI) / 180
 export const VERTICAL_SCALE = Math.cos(TILT_RAD)
 
 /** Píxeis de ecrã por unidade do esquema. */
-export const MIN_ZOOM = 0.35
-export const MAX_ZOOM = 4
+/** O mínimo permite ver Portugal continental inteiro; o máximo, detalhe de um nó. */
+export const MIN_ZOOM = 0.25
+export const MAX_ZOOM = 6
 
 export interface ViewState {
   /** Centro da vista, em coordenadas do esquema. */

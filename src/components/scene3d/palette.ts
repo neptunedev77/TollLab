@@ -3,8 +3,12 @@
  * se mudares um token de mapa, muda-o também aqui.
  */
 export const SCENE_COLORS = {
-  board: '#f4ecdf',
-  boardEdge: '#e6d9c4',
+  /** Mar: é a cor de fundo do contentor do mapa (token --color-sea); o canvas é transparente. */
+  sea: '#dce9ef',
+  coastHalo: '#cddfe7',
+  portugal: '#f7f0e4',
+  spain: '#ebe4d8',
+  coastline: '#d6c4a8',
   motorway: '#8a90dc',
   motorwayCasing: '#ffffff',
   alternative: '#c2b098',
@@ -20,11 +24,14 @@ export const SCENE_COLORS = {
   tollInactive: '#b9afa1',
 } as const
 
-/** Larguras das estradas, em unidades do esquema. */
+/** Larguras das estradas, em unidades do mapa (1 unidade = 250 m). */
 export const ROAD_WIDTH = {
-  motorway: { fill: 6, casing: 10 },
-  alternative: { fill: 3.6, casing: 6.6 },
+  motorway: { fill: 3.4, casing: 5.8 },
+  alternative: { fill: 2, casing: 3.8 },
   /** Área de clique invisível, mais larga do que a estrada, para facilitar a seleção. */
-  hit: 18,
-  glow: 20,
+  hit: 11,
+  glow: 12,
 } as const
+
+/** Raio dos marcadores de nó, em unidades do mapa. */
+export const NODE_RADIUS = { city: 5.5, interchange: 3.6 } as const

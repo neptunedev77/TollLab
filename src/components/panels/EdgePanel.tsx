@@ -13,8 +13,12 @@ const numberFormat = new Intl.NumberFormat('pt-PT')
 /** Painel de um troço selecionado: identificação, valores base e portagens associadas. */
 export function EdgePanel({ edge }: { edge: RoadEdge }) {
   const dataset = useMapStore((state) => state.dataset)
+  const allTolls = useMapStore((state) => state.tolls)
+  const tollsVisible = useMapStore((state) => state.layers.tolls)
   const clearSelection = useMapStore((state) => state.clearSelection)
-  const tolls = dataset.tolls.filter((toll) => toll.edgeId === edge.id)
+  const select = useMapStore((state) => state.select)
+  const addToll = useMapStore((state) => state.addToll)
+  const tolls = allTolls.filter((toll) => toll.edgeId === edge.id).sort((a, b) => a.position - b.position)
   const motorway = edge.roadClass === 'motorway'
   const illustrative = dataset.illustrativeValues ? ' · ilustrativo' : ''
 
@@ -53,7 +57,7 @@ export function EdgePanel({ edge }: { edge: RoadEdge }) {
             <Metric
               label="Comprimento"
               value={edge.lengthKm === null ? 'Desconhecido' : `${numberFormat.format(edge.lengthKm)} km`}
-              hint={edge.lengthKm === null ? 'Sem fonte validada; o mapa é esquemático.' : undefined}
+              hint={edge.lengthKm === null ? 'Sem fonte validada; o traçado no mapa é aproximado.' : undefined}
               icon={<Ruler className="size-4" />}
               tone="peach"
             />
@@ -72,21 +76,26 @@ export function EdgePanel({ edge }: { edge: RoadEdge }) {
         ) : (
           <ul className="flex flex-col gap-1.5">
             {tolls.map((toll) => (
-              <li key={toll.id} className="flex items-center justify-between gap-2 rounded-card bg-surface-muted px-3 py-2.5">
-                <div className="flex min-w-0 flex-col">
-                  <span className="truncate text-xs font-bold text-ink">{toll.name}</span>
-                  <span className="text-[0.6875rem] text-subtle">Classe 1: {formatEuros(toll.tariffCents.c1)}</span>
-                </div>
-                <Badge tone={toll.active ? 'warning' : 'neutral'}>{toll.active ? 'Ativa' : 'Inativa'}</Badge>
+              <li key={toll.id}>
+                <button
+                  type="button"
+                  disabled={!tollsVisible}
+                  onClick={() => select({ kind: 'toll', id: toll.id })}
+                  className="flex w-full items-center justify-between gap-2 rounded-card bg-surface-muted px-3 py-2.5 text-left transition-[background-color,transform] duration-200 ease-spring enabled:hover:-translate-y-px enabled:hover:bg-surface-sunken/70"
+                >
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate text-xs font-bold text-ink">{toll.name}</span>
+                    <span className="text-[0.6875rem] text-subtle">
+                      Classe 1: {formatEuros(toll.tariffCents.c1)} · {Math.round(toll.position * 100)} % do troço
+                    </span>
+                  </span>
+                  <Badge tone={toll.active ? 'warning' : 'neutral'}>{toll.active ? 'Ativa' : 'Inativa'}</Badge>
+                </button>
               </li>
             ))}
           </ul>
         )}
-        <Button
-          icon={<Plus className="size-4" />}
-          unavailableReason="A edição de portagens ainda não está disponível"
-          className="w-full"
-        >
+        <Button icon={<Plus className="size-4" />} onClick={() => addToll(edge.id)} className="w-full">
           Adicionar portagem neste troço
         </Button>
       </section>

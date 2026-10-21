@@ -32,6 +32,9 @@ export function MapLegend() {
           <Item swatch={<Gate color={SCENE_COLORS.tollActive} />}>Pórtico ativo</Item>
           <Item swatch={<Gate color={SCENE_COLORS.tollInactive} />}>Pórtico inativo</Item>
           <Item swatch={<Line color={SCENE_COLORS.selected} thick />}>Selecionado</Item>
+          <li className="mt-1 border-t border-border pt-1.5 text-[0.625rem] leading-snug font-medium text-subtle">
+            Contorno: Natural Earth · Localidades: Wikidata
+          </li>
         </ul>
       )}
     </div>

@@ -108,6 +108,31 @@ São três e nunca se misturam:
 
 **Licenças e dados externos (verificado na Etapa 3):** não há dados geográficos, tiles nem serviços externos; a rede é local e esquemática. Licenças das dependências de execução: React, React DOM, three.js, React Three Fiber e Zustand (MIT), Lucide (ISC), Nunito (OFL-1.1). Ferramentas de desenvolvimento: MIT, exceto o TypeScript (Apache-2.0). Nenhuma exige atribuição visível na interface; as licenças acompanham os pacotes.
 
+### Mapa de Portugal com posições reais (pedido após a Etapa 3)
+
+| # | Decisão | Escolha | Justificação |
+| --- | --- | --- | --- |
+| D33 | Fontes geográficas (escolhidas pelo utilizador) | Contorno: Natural Earth, Admin 0 Countries 1:50m (domínio público). Localidades: Wikidata P625 dos municípios (CC0 1.0) | Não exigem atribuição nem serviços pagos, e documentam-se com ID (ex.: Porto = Q36433). O 1:10m (13 MB) não acrescenta nada visível a esta escala. |
+| D34 | Separação de camadas | `data/geo/basemap.ts` e `places.ts` guardam lon/lat originais; `projection.ts` projeta-os; a rede guarda só as posições projetadas | Mantém separadas a geografia (dados com fonte), a apresentação (plano do mapa) e a topologia. |
+| D35 | Projeção | Equiretangular com latitude de referência 40°; 1 unidade = 250 m | É simples e linear, com distorção pequena à escala de Portugal continental (≈ ±6% leste–oeste nos extremos). Não serve para medições rigorosas. |
+| D36 | Traçado dos troços | Continua aproximado (curva entre posições reais); comprimentos `null` | O traçado real exigiria o OpenStreetMap (ODbL, com atribuição) e muito mais dados. Fica assinalado na interface ("traçado das estradas aproximado") e em `geography.roadGeometry`. |
+| D37 | Mapa base | Portugal em creme, Espanha (recortada) num tom neutro, mar azul suave; pan limitado ao plano; zoom mínimo mostra o país inteiro | A fronteira com Espanha não deve parecer costa. O mapa abre enquadrado na rede. |
+| D38 | Rótulos | Prioridade por número de ligações; se colidirem tentam ficar por baixo do marcador, senão ficam ocultos; nome curto opcional (`shortName`) | Evita sobreposições sem perder as cidades principais; o nome acessível é sempre o completo. |
+
+O script de extração (fora do repositório) lê o GeoJSON do Natural Earth, escolhe o maior polígono de PRT e ESP, recorta Espanha a lon [-10.2, -5.2] e lat [36.4, 44.0], e escreve `basemap.ts` com coordenadas arredondadas a 4 casas decimais (~10 m).
+
+### Edição de portagens (Etapa 4)
+
+| # | Decisão | Escolha | Justificação |
+| --- | --- | --- | --- |
+| D39 | Operações | Funções puras em `domain/tolls.ts` (adicionar, mover, ativar, tarifa, remover); cada resultado é revalidado com `validateTolls` | É impossível obter um pórtico solto, duplicado, num troço inexistente ou com tarifa inválida (teste com 1000 operações aleatórias). |
+| D40 | Ancoragem ao mover | O arrasto projeta o cursor no troço visível mais próximo (raio de 36 px no ecrã); a posição fica entre 4% e 96% do troço; posições em cima de outro pórtico são ignoradas | O pórtico encaixa sempre numa estrada e mantém a associação a um troço. |
+| D41 | Estado editável | O store tem `tolls` próprios; o `dataset.tolls` original nunca é alterado ("Repor configuração" volta a ele) | Prepara os cenários independentes da Etapa 8. |
+| D42 | Cancelar | Histórico de anular/refazer (100 passos; Ctrl/⌘+Z, Ctrl/⌘+Shift+Z, Ctrl+Y, botão "Anular"); alterações seguidas ao mesmo controlo juntam-se num passo (1,5 s); Esc cancela um arrasto ou a colocação | Edição rápida e reversível sem confirmações intrusivas. |
+| D43 | Tarifas na interface | Slider de 0 a 10 € (passos de 5 cêntimos) e campo em euros até 100 € (vírgula ou ponto; no máximo 2 casas decimais); erros claros; ao sair do campo, um valor inválido é descartado | O modelo nunca recebe valores inválidos e o campo nunca contradiz o modelo. |
+| D44 | Classes | Tarifa editável por classe (1–4), independente das restantes | Não há regra que obrigue a classe 2 a custar mais do que a classe 1; fica à escolha do utilizador. |
+| D45 | Acessibilidade da edição | A posição no troço também se edita com um slider (teclado); Delete remove o pórtico selecionado com o mapa focado | Mover e remover não dependem do rato. |
+
 ## 4. Dependências previstas (ainda não instaladas)
 
 | Etapa | Pacotes |
