@@ -18,9 +18,18 @@ describe('App (layout principal)', () => {
     render(<App />)
 
     expect(screen.getByText(/Mapa esquemático/)).toHaveTextContent('não cartográfico')
-    expect(screen.getByText('A rede ainda não foi carregada')).toBeInTheDocument()
-    // As três métricas da visão geral ficam vazias até existir modelo.
-    expect(screen.getAllByText('Sem dados')).toHaveLength(3)
+    expect(screen.getByText('Rede de demonstração carregada')).toBeInTheDocument()
+    // Tráfego e receita ficam vazios até haver simulação.
+    expect(screen.getAllByText('Sem dados')).toHaveLength(2)
+  })
+
+  it('mostra as contagens reais da rede carregada', () => {
+    render(<App />)
+
+    const activeTolls = screen.getByText('Portagens ativas').closest('div')
+    expect(activeTolls).toHaveTextContent('5')
+    expect(activeTolls).toHaveTextContent('de 6 pórticos')
+    expect(screen.getByText(/12 cidades · 29 troços · 6 pórticos/)).toBeInTheDocument()
   })
 
   it('abre e fecha o painel lateral, tirando-o da navegação quando fechado', async () => {
@@ -47,7 +56,7 @@ describe('App (layout principal)', () => {
     const add = screen.getByRole('button', { name: 'Adicionar portagem' })
     expect(add).toHaveAttribute('aria-disabled', 'true')
     expect(add).not.toBeDisabled()
-    expect(add).toHaveAccessibleDescription(/Disponível quando a rede estiver carregada/)
+    expect(add).toHaveAccessibleDescription(/Disponível quando a rede estiver visível no mapa/)
 
     add.focus()
     expect(add).toHaveFocus()

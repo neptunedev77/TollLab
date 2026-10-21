@@ -78,6 +78,21 @@ São três e nunca se misturam:
 | D16 | Animação de interface | Sem Framer Motion por agora: transições CSS e redução global com `prefers-reduced-motion` | Ainda não há animações complexas que justifiquem a dependência. |
 | D17 | Galeria do design system | `?gallery`, só em desenvolvimento; eliminada do build de produção | Permite rever os componentes isoladamente. |
 
+### Modelo de dados (Etapa 2)
+
+| # | Decisão | Escolha | Justificação |
+| --- | --- | --- | --- |
+| D18 | Camadas de dados | `RoadNetwork` (topologia, só IDs), `SchematicLayout` (coordenadas esquemáticas) e `geography: null` | Cumpre a separação entre topologia, apresentação e geografia. Os extremos da geometria vêm sempre das posições dos nós, por isso a geometria não se pode desligar da topologia. |
+| D19 | Ancoragem dos pórticos | `{ edgeId, position }` com `position` em ]0, 1[ ao longo da polilinha do troço; separação mínima de 0,02 no mesmo troço | Um pórtico nunca fica solto nem em cima de um nó, e não há duplicados no mesmo ponto. |
+| D20 | Dinheiro | Cêntimos inteiros, entre 0 e 10 000 (100 €); formatação `pt-PT` | Evita erros de vírgula flutuante; os valores absurdos são rejeitados. |
+| D21 | Classes de veículos | `c1`–`c4`, seguindo a convenção portuguesa de classes 1 a 4; tarifa obrigatória para todas | Prepara as tarifas por classe sem complicar o modelo. |
+| D22 | Conectividade | A rede tem de ser fortemente conexa, respeitando os sentidos | Garante que existe sempre algum percurso entre quaisquer dois nós da rede de base. A ausência de percurso fica para cenários editados, tratados pelo motor. |
+| D23 | Valores da rede de demonstração | Tempos, capacidades e tarifas ilustrativos; comprimentos `null` | Não há fonte validada; os dados assinalam-se como ilustrativos (`illustrativeValues: true`). |
+| D24 | Validação | Funções puras que devolvem todos os problemas (código, caminho e mensagem), sem lançar exceções | Mensagens compreensíveis na interface e testes precisos por tipo de erro. |
+| D25 | Configuração TypeScript dos testes | `tsconfig.test.json` com tipos de Node; o código da aplicação continua sem acesso a eles | Os testes de arquitetura leem ficheiros, mas a aplicação nunca deve depender de APIs de Node. |
+
+**Rede de demonstração:** 13 nós (12 cidades e o Nó da Maia) e 29 troços (15 de autoestrada: A3, A4, A7, A28 e A11; 14 de vias nacionais: N13, N14, N15, N101, N201 e N206). Tem 6 pórticos, 5 deles ativos. Todas as cidades estão ligadas também só por vias alternativas, para o motor ter sempre alternativas às portagens.
+
 ## 4. Dependências previstas (ainda não instaladas)
 
 | Etapa | Pacotes |

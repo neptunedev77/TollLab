@@ -1,16 +1,18 @@
+import type { NetworkLoadResult } from '../../data/loadNetwork.ts'
 import { cx } from '../../utils/cx.ts'
 import { OverviewPanel } from './OverviewPanel.tsx'
 
 interface SidePanelProps {
   id: string
   open: boolean
+  networkLoad: NetworkLoadResult
 }
 
 /**
  * Painel lateral em "ilha" ao lado do mapa (não sobreposto), por isso nunca tapa o mapa.
  * Abre e fecha a deslizar; quando fechado fica `inert`, fora da ordem de tabulação.
  */
-export function SidePanel({ id, open }: SidePanelProps) {
+export function SidePanel({ id, open, networkLoad }: SidePanelProps) {
   return (
     <aside
       id={id}
@@ -30,7 +32,7 @@ export function SidePanel({ id, open }: SidePanelProps) {
         )}
       >
         <div className="h-full overflow-y-auto">
-          <OverviewPanel />
+          <OverviewPanel networkLoad={networkLoad} />
         </div>
       </div>
     </aside>

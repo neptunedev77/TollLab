@@ -1,7 +1,7 @@
 import { Crosshair, Layers, Minus, Plus } from 'lucide-react'
 import { IconButton } from '../ui/IconButton.tsx'
 
-const UNAVAILABLE = 'disponível quando a rede estiver carregada'
+const UNAVAILABLE = 'disponível quando a rede estiver visível no mapa'
 
 export function MapControls() {
   return (

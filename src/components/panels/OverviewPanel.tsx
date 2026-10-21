@@ -1,11 +1,22 @@
 import { Car, Coins, Info, Plus, RotateCcw, Save, Ticket } from 'lucide-react'
+import type { NetworkLoadResult } from '../../data/loadNetwork.ts'
+import { summarizeNetwork } from '../../domain/summary.ts'
 import { Button } from '../ui/Button.tsx'
 import { Metric } from '../ui/Metric.tsx'
 
-const NO_NETWORK = 'Disponível quando a rede estiver carregada'
+const NO_NETWORK = 'Disponível quando a rede estiver visível no mapa'
 
-/** Estado "sem seleção" do painel lateral. Sem rede carregada, as métricas ficam vazias. */
-export function OverviewPanel() {
+interface OverviewPanelProps {
+  networkLoad: NetworkLoadResult
+}
+
+/**
+ * Estado "sem seleção" do painel lateral. As contagens vêm dos dados da rede; tráfego e receita
+ * ficam vazios até haver simulação, em vez de mostrarem números inventados.
+ */
+export function OverviewPanel({ networkLoad }: OverviewPanelProps) {
+  const summary = networkLoad.status === 'ready' ? summarizeNetwork(networkLoad.dataset) : null
+
   return (
     <div className="flex flex-col gap-5 p-5">
       <section aria-labelledby="overview-title" className="flex flex-col gap-3">
@@ -17,8 +28,14 @@ export function OverviewPanel() {
         </div>
 
         <dl className="grid grid-cols-2 gap-2">
-          <Metric label="Portagens ativas" icon={<Ticket className="size-4" />} tone="sky" />
-          <Metric label="Tráfego atual" icon={<Car className="size-4" />} tone="mint" />
+          <Metric
+            label="Portagens ativas"
+            value={summary ? String(summary.activeTolls) : undefined}
+            hint={summary ? `de ${summary.tolls} pórticos` : undefined}
+            icon={<Ticket className="size-4" />}
+            tone="sky"
+          />
+          <Metric label="Tráfego atual" hint="Sem simulação" icon={<Car className="size-4" />} tone="mint" />
           <div className="col-span-2">
             <Metric
               label="Receita bruta do período"
