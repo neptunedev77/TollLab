@@ -4,7 +4,9 @@ import { summarizeNetwork } from '../../domain/summary.ts'
 import { Button } from '../ui/Button.tsx'
 import { Metric } from '../ui/Metric.tsx'
 
-const NO_NETWORK = 'Disponível quando a rede estiver visível no mapa'
+const TOLL_EDITING_UNAVAILABLE = 'A edição de portagens ainda não está disponível'
+const SCENARIOS_UNAVAILABLE = 'Os cenários ainda não estão disponíveis'
+const NOTHING_TO_RESET = 'Ainda não há alterações para repor'
 
 interface OverviewPanelProps {
   networkLoad: NetworkLoadResult
@@ -24,7 +26,7 @@ export function OverviewPanel({ networkLoad }: OverviewPanelProps) {
           <h2 id="overview-title" className="text-lg font-extrabold tracking-tight">
             Visão geral
           </h2>
-          <p className="text-xs text-muted">Seleciona uma portagem ou um troço no mapa para ver os detalhes.</p>
+          <p className="text-xs text-muted">Seleciona uma cidade ou um troço no mapa para ver os detalhes.</p>
         </div>
 
         <dl className="grid grid-cols-2 gap-2">
@@ -55,15 +57,15 @@ export function OverviewPanel({ networkLoad }: OverviewPanelProps) {
           variant="primary"
           size="lg"
           icon={<Plus className="size-4" strokeWidth={2.6} />}
-          unavailableReason={NO_NETWORK}
+          unavailableReason={TOLL_EDITING_UNAVAILABLE}
           className="w-full"
         >
           Adicionar portagem
         </Button>
-        <Button icon={<Save className="size-4" />} unavailableReason={NO_NETWORK} className="w-full">
+        <Button icon={<Save className="size-4" />} unavailableReason={SCENARIOS_UNAVAILABLE} className="w-full">
           Guardar cenário
         </Button>
-        <Button icon={<RotateCcw className="size-4" />} unavailableReason={NO_NETWORK} className="w-full">
+        <Button icon={<RotateCcw className="size-4" />} unavailableReason={NOTHING_TO_RESET} className="w-full">
           Repor configuração
         </Button>
       </section>

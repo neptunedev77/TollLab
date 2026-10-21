@@ -23,3 +23,8 @@ export function summarizeNetwork(dataset: NetworkDataset): NetworkSummary {
     activeTolls: dataset.tolls.filter((toll) => toll.active).length,
   }
 }
+
+/** Nome legível de um nó, ou o próprio ID se não existir. */
+export function nodeName(dataset: NetworkDataset, id: string): string {
+  return dataset.network.nodes.find((node) => node.id === id)?.name ?? id
+}

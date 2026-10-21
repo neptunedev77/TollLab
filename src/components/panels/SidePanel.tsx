@@ -1,6 +1,7 @@
 import type { NetworkLoadResult } from '../../data/loadNetwork.ts'
 import { cx } from '../../utils/cx.ts'
 import { OverviewPanel } from './OverviewPanel.tsx'
+import { SelectionPanel } from './SelectionPanel.tsx'
 
 interface SidePanelProps {
   id: string
@@ -32,7 +33,11 @@ export function SidePanel({ id, open, networkLoad }: SidePanelProps) {
         )}
       >
         <div className="h-full overflow-y-auto">
-          <OverviewPanel networkLoad={networkLoad} />
+          {networkLoad.status === 'ready' ? (
+            <SelectionPanel networkLoad={networkLoad} />
+          ) : (
+            <OverviewPanel networkLoad={networkLoad} />
+          )}
         </div>
       </div>
     </aside>

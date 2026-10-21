@@ -1,40 +1,55 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../App.tsx'
 
+// O jsdom não tem WebGL: a cena 3D é substituída; tudo o resto (store, rótulos, painéis) é real.
+vi.mock('../components/scene3d/webgl.ts', () => ({ isWebGLAvailable: () => true }))
+vi.mock('../components/scene3d/MapScene.tsx', () => ({ default: () => <div data-testid="map-scene" /> }))
+
+beforeEach(() => {
+  // Dá ao viewport um tamanho, para a vista e os rótulos existirem.
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 1000, 700))
+})
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
+
+const renderApp = () => render(<App mapStoreOptions={{ animate: false }} />)
+
 describe('App (layout principal)', () => {
-  it('apresenta barra superior, mapa, painel lateral e controlos de simulação', () => {
-    render(<App />)
+  it('apresenta barra superior, mapa, painel lateral e controlos', async () => {
+    renderApp()
 
     expect(screen.getByRole('banner')).toHaveTextContent('TollLab')
     expect(screen.getByRole('main', { name: 'Mapa da rede' })).toBeInTheDocument()
+    expect(screen.getByRole('application', { name: 'Mapa interativo da rede' })).toBeInTheDocument()
+    expect(await screen.findByTestId('map-scene')).toBeInTheDocument()
     expect(screen.getByRole('complementary', { name: 'Painel lateral' })).toBeInTheDocument()
     expect(screen.getByRole('toolbar', { name: 'Controlos da simulação' })).toBeInTheDocument()
     expect(screen.getByRole('toolbar', { name: 'Navegação do mapa' })).toBeInTheDocument()
   })
 
   it('identifica o mapa como esquemático e não mostra números inventados', () => {
-    render(<App />)
+    renderApp()
 
     expect(screen.getByText(/Mapa esquemático/)).toHaveTextContent('não cartográfico')
-    expect(screen.getByText('Rede de demonstração carregada')).toBeInTheDocument()
     // Tráfego e receita ficam vazios até haver simulação.
     expect(screen.getAllByText('Sem dados')).toHaveLength(2)
   })
 
   it('mostra as contagens reais da rede carregada', () => {
-    render(<App />)
+    renderApp()
 
     const activeTolls = screen.getByText('Portagens ativas').closest('div')
     expect(activeTolls).toHaveTextContent('5')
     expect(activeTolls).toHaveTextContent('de 6 pórticos')
-    expect(screen.getByText(/12 cidades · 29 troços · 6 pórticos/)).toBeInTheDocument()
   })
 
   it('abre e fecha o painel lateral, tirando-o da navegação quando fechado', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    renderApp()
 
     const toggle = screen.getByRole('button', { name: 'Fechar painel lateral' })
     const panel = screen.getByRole('complementary', { name: 'Painel lateral' })
@@ -49,28 +64,90 @@ describe('App (layout principal)', () => {
     expect(panel).not.toHaveAttribute('inert')
   })
 
-  it('marca as ações sem modelo como indisponíveis mas focáveis, com o motivo', async () => {
+  it('marca as ações ainda sem modelo como indisponíveis mas focáveis, com o motivo', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    renderApp()
 
     const add = screen.getByRole('button', { name: 'Adicionar portagem' })
     expect(add).toHaveAttribute('aria-disabled', 'true')
     expect(add).not.toBeDisabled()
-    expect(add).toHaveAccessibleDescription(/Disponível quando a rede estiver visível no mapa/)
+    expect(add).toHaveAccessibleDescription(/edição de portagens ainda não está disponível/)
 
     add.focus()
-    expect(add).toHaveFocus()
     await user.keyboard('{Enter}')
     expect(add).toHaveFocus()
   })
 
-  it('permite chegar aos controlos essenciais só com o teclado', async () => {
+  it('permite chegar ao mapa e aos seus controlos só com o teclado', async () => {
     const user = userEvent.setup()
-    render(<App />)
+    renderApp()
 
     await user.tab()
     expect(screen.getByRole('button', { name: 'Fechar painel lateral' })).toHaveFocus()
     await user.tab()
-    expect(screen.getByRole('button', { name: 'Aproximar' })).toHaveFocus()
+    expect(screen.getByRole('application', { name: 'Mapa interativo da rede' })).toHaveFocus()
+    // A seguir vêm os rótulos das cidades, que são botões.
+    await user.tab()
+    expect(document.activeElement).toHaveTextContent('Valença')
+  })
+})
+
+describe('seleção no mapa e painel lateral', () => {
+  it('seleciona uma cidade pelo rótulo e mostra as suas ligações', async () => {
+    const user = userEvent.setup()
+    renderApp()
+
+    await user.click(screen.getByRole('button', { name: 'Porto' }))
+
+    expect(screen.getByRole('button', { name: 'Porto' })).toHaveAttribute('aria-pressed', 'true')
+    const panel = screen.getByRole('complementary', { name: 'Painel lateral' })
+    expect(within(panel).getByRole('heading', { name: 'Porto' })).toBeInTheDocument()
+    expect(within(panel).getByText('Ligações (6)')).toBeInTheDocument()
+  })
+
+  it('navega de uma cidade para um troço e volta à visão geral', async () => {
+    const user = userEvent.setup()
+    renderApp()
+
+    await user.click(screen.getByRole('button', { name: 'Porto' }))
+    const panel = screen.getByRole('complementary', { name: 'Painel lateral' })
+    await user.click(within(panel).getByRole('button', { name: /A4.*Penafiel/ }))
+
+    expect(within(panel).getByRole('heading', { name: 'Porto – Penafiel' })).toBeInTheDocument()
+    expect(within(panel).getByText('Autoestrada · dois sentidos')).toBeInTheDocument()
+    expect(within(panel).getByText('Pórtico A4 Porto – Penafiel')).toBeInTheDocument()
+    expect(within(panel).getByText('Desconhecido')).toBeInTheDocument()
+    // O rótulo do Porto deixa de estar selecionado: a seleção é única.
+    expect(screen.getByRole('button', { name: 'Porto' })).toHaveAttribute('aria-pressed', 'false')
+
+    await user.click(within(panel).getByRole('button', { name: 'Voltar à visão geral' }))
+    expect(within(panel).getByRole('heading', { name: 'Visão geral' })).toBeInTheDocument()
+  })
+
+  it('Escape no mapa limpa a seleção', async () => {
+    const user = userEvent.setup()
+    renderApp()
+
+    await user.click(screen.getByRole('button', { name: 'Braga' }))
+    screen.getByRole('application', { name: 'Mapa interativo da rede' }).focus()
+    await user.keyboard('{Escape}')
+
+    expect(screen.getByRole('button', { name: 'Braga' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('heading', { name: 'Visão geral' })).toBeInTheDocument()
+  })
+
+  it('esconder as vias alternativas limpa uma seleção que deixou de estar visível', async () => {
+    const user = userEvent.setup()
+    renderApp()
+
+    await user.click(screen.getByRole('button', { name: 'Porto' }))
+    const panel = screen.getByRole('complementary', { name: 'Painel lateral' })
+    await user.click(within(panel).getByRole('button', { name: /N15.*Penafiel/ }))
+    expect(within(panel).getByText('Via alternativa · dois sentidos')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Camadas' }))
+    await user.click(screen.getByRole('switch', { name: 'Vias alternativas' }))
+
+    expect(within(panel).getByRole('heading', { name: 'Visão geral' })).toBeInTheDocument()
   })
 })

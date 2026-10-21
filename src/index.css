@@ -68,6 +68,17 @@
   --animate-pop-in: pop-in 180ms var(--ease-spring);
   --animate-float: float 5s ease-in-out infinite;
   --animate-fade-up: fade-up 260ms var(--ease-calm);
+  /* Só movimento, sem opacidade: o conteúdo nunca fica invisível se a animação congelar (D12c). */
+  --animate-settle: settle 260ms var(--ease-spring);
+
+  @keyframes settle {
+    from {
+      transform: translateY(6px);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
 
   @keyframes pop-in {
     from {

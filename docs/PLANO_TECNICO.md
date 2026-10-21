@@ -93,11 +93,25 @@ São três e nunca se misturam:
 
 **Rede de demonstração:** 13 nós (12 cidades e o Nó da Maia) e 29 troços (15 de autoestrada: A3, A4, A7, A28 e A11; 14 de vias nacionais: N13, N14, N15, N101, N201 e N206). Tem 6 pórticos, 5 deles ativos. Todas as cidades estão ligadas também só por vias alternativas, para o motor ter sempre alternativas às portagens.
 
+### Mapa e navegação (Etapa 3)
+
+| # | Decisão | Escolha | Justificação |
+| --- | --- | --- | --- |
+| D2 | Renderização (confirmada) | Uma única cena WebGL com React Three Fiber 9 e three.js 0.186, sem drei | O mapa, os pórticos e (mais tarde) os veículos partilham a mesma câmara, sem camadas desalinhadas. O drei não é necessário: os rótulos e os controlos usam a nossa matemática da vista. |
+| D26 | Câmara | Ortográfica, inclinada 28°; `frameloop="demand"`; `flat` (sem tone mapping) | O chão projeta-se de forma afim, por isso pan, zoom e projeção são funções puras e testáveis (`viewMath.ts`). Só renderiza quando algo muda, e as cores coincidem com os tokens CSS. |
+| D27 | Fonte de verdade da vista | `view` no store (Zustand); a câmara e os rótulos DOM seguem-na | Os rótulos ficam sempre alinhados com os nós; recentrar anima o próprio estado (e respeita `prefers-reduced-motion`). |
+| D28 | Geometria canónica | Curva Catmull-Rom amostrada (`edgeCurve`) definida no domínio | O desenho, a ancoragem dos pórticos e, mais tarde, os veículos usam exatamente a mesma linha. |
+| D29 | Seleção | `select()` só aceita elementos que existem e estão visíveis; esconder uma camada limpa a seleção que deixou de estar visível; clicar no vazio limpa, arrastar não | Mantém a seleção sempre consistente com o que se vê. |
+| D30 | Acessibilidade do mapa | Viewport `role="application"` focável (setas, + e −, 0, Esc); rótulos das cidades são botões; o painel de uma cidade lista as ligações como botões | O canvas WebGL não é acessível por si; isto permite selecionar cidades e troços só com o teclado. |
+| D31 | Carregamento | A cena 3D é um chunk à parte (`lazy`), com estado de carregamento e fallback sem WebGL | A interface abre sem esperar pelo three.js (~243 kB comprimido). O limite do aviso de chunk subiu para 1000 kB só por causa desse chunk. |
+| D32 | Camadas | Nomes das cidades, pórticos e vias alternativas; tráfego, preço e receita aparecem como indisponíveis ("Requer simulação") | Não se mostram camadas sem dados reais por trás. |
+
+**Licenças e dados externos (verificado na Etapa 3):** não há dados geográficos, tiles nem serviços externos; a rede é local e esquemática. Licenças das dependências de execução: React, React DOM, three.js, React Three Fiber e Zustand (MIT), Lucide (ISC), Nunito (OFL-1.1). Ferramentas de desenvolvimento: MIT, exceto o TypeScript (Apache-2.0). Nenhuma exige atribuição visível na interface; as licenças acompanham os pacotes.
+
 ## 4. Dependências previstas (ainda não instaladas)
 
 | Etapa | Pacotes |
 | --- | --- |
-| 3 / 7 | `three`, `@react-three/fiber`, `@react-three/drei` (só se for útil), `@types/three` |
 | quando necessário | `motion` (Framer Motion), se as transições CSS não chegarem |
 | 4 | `zustand` |
 | 9 | `@playwright/test` |
