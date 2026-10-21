@@ -1,4 +1,4 @@
-import { Map as MapIcon } from 'lucide-react'
+import { Route } from 'lucide-react'
 import { EmptyState } from '../ui/StateViews.tsx'
 import { MapControls } from './MapControls.tsx'
 import { SchematicNotice } from './SchematicNotice.tsx'
@@ -11,24 +11,24 @@ import { SimulationControls } from '../simulation/SimulationControls.tsx'
  */
 export function MapStage() {
   return (
-    <div className="map-grid relative h-full w-full overflow-hidden">
+    <div className="map-paper relative h-full w-full">
       <div className="absolute inset-0 flex items-center justify-center p-6">
         <EmptyState
-          icon={<MapIcon aria-hidden="true" className="size-8" strokeWidth={1.5} />}
+          icon={<Route aria-hidden="true" className="size-7" strokeWidth={2} />}
           title="A rede ainda não foi carregada"
           description="A rede rodoviária esquemática de demonstração vai aparecer aqui."
         />
       </div>
 
-      <div className="absolute top-3 right-3">
-        <MapControls />
-      </div>
-
-      <div className="absolute top-3 left-3">
+      <div className="absolute top-4 left-4">
         <SchematicNotice />
       </div>
 
-      <div className="absolute bottom-3 left-1/2 -translate-x-1/2">
+      <div className="absolute top-4 right-4">
+        <MapControls />
+      </div>
+
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
         <SimulationControls />
       </div>
     </div>

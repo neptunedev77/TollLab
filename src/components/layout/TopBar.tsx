@@ -1,4 +1,4 @@
-import { PanelRightClose, PanelRightOpen, Waypoints } from 'lucide-react'
+import { Layers2, PanelRightClose, PanelRightOpen, Waypoints } from 'lucide-react'
 import { APP_NAME } from '../../appInfo.ts'
 import { Badge } from '../ui/Badge.tsx'
 import { IconButton } from '../ui/IconButton.tsx'
@@ -11,15 +11,19 @@ interface TopBarProps {
 
 export function TopBar({ panelOpen, panelId, onTogglePanel }: TopBarProps) {
   return (
-    <header className="z-20 flex h-[var(--topbar-height)] items-center gap-3 border-b border-border bg-surface px-3">
+    <header className="flex h-[var(--topbar-height)] shrink-0 items-center gap-3 px-1.5">
       <div className="flex items-center gap-2">
-        <Waypoints aria-hidden="true" className="size-5 text-accent" />
-        <span className="text-sm font-semibold tracking-tight">{APP_NAME}</span>
+        <span
+          aria-hidden="true"
+          className="flex size-8 items-center justify-center rounded-[0.7rem] bg-gradient-to-br from-accent to-accent-deep text-white shadow-key"
+        >
+          <Waypoints className="size-4.5" strokeWidth={2.4} />
+        </span>
+        <span className="text-base font-extrabold tracking-tight">{APP_NAME}</span>
       </div>
 
-      <div aria-hidden="true" className="h-5 w-px bg-border" />
-
-      <p className="truncate text-xs text-muted">
+      <p className="flex items-center gap-1.5 truncate rounded-full bg-surface-raised/80 px-3 py-1.5 text-xs font-bold text-muted shadow-soft">
+        <Layers2 aria-hidden="true" className="size-3.5 text-subtle" />
         <span className="sr-only">Cenário atual: </span>Cenário base
       </p>
 
@@ -32,6 +36,7 @@ export function TopBar({ panelOpen, panelId, onTogglePanel }: TopBarProps) {
           aria-expanded={panelOpen}
           aria-controls={panelId}
           onClick={onTogglePanel}
+          className="bg-surface-raised/80 shadow-soft"
         />
       </div>
     </header>

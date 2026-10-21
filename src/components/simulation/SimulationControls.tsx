@@ -7,23 +7,32 @@ const UNAVAILABLE = 'disponível quando o motor de simulação estiver ativo'
 const SPEEDS = [1, 2, 4] as const
 
 /**
- * Controlos de simulação sobre o mapa. Continuam visíveis e focáveis, mas indisponíveis até haver
- * motor de simulação, para o layout final já poder ser validado.
+ * Dock de simulação sobre o mapa. Os controlos continuam visíveis e focáveis, mas indisponíveis até
+ * haver motor de simulação, para o layout final já poder ser validado.
  */
 export function SimulationControls() {
   return (
     <div
       role="toolbar"
       aria-label="Controlos da simulação"
-      className="flex items-center gap-1 rounded-card border border-border bg-surface-raised p-1 shadow-float"
+      className="flex items-center gap-1.5 rounded-full bg-surface-raised/95 p-1.5 shadow-float ring-1 ring-border/70 backdrop-blur-md"
     >
-      <IconButton label="Iniciar simulação" icon={<Play className="size-4" />} unavailableReason={UNAVAILABLE} />
-      <IconButton label="Reiniciar simulação" icon={<RotateCcw className="size-4" />} unavailableReason={UNAVAILABLE} />
-
-      <div aria-hidden="true" className="mx-1 h-5 w-px bg-border" />
+      <IconButton
+        label="Iniciar simulação"
+        variant="primary"
+        size="lg"
+        icon={<Play className="size-5 translate-x-px fill-current" />}
+        unavailableReason={UNAVAILABLE}
+      />
+      <IconButton
+        label="Reiniciar simulação"
+        icon={<RotateCcw className="size-4" />}
+        className="rounded-full"
+        unavailableReason={UNAVAILABLE}
+      />
 
       <Tooltip content={`Velocidade — ${UNAVAILABLE}`}>
-        <fieldset className="flex gap-0.5">
+        <fieldset className="flex gap-0.5 rounded-full bg-surface-muted p-1">
           <legend className="sr-only">Velocidade da simulação</legend>
           {SPEEDS.map((speed) => (
             <button
@@ -32,8 +41,8 @@ export function SimulationControls() {
               aria-pressed={speed === 1}
               aria-disabled="true"
               className={cx(
-                'h-8 cursor-not-allowed rounded-control px-2 text-xs font-medium tabular-nums opacity-50',
-                speed === 1 ? 'bg-surface-muted text-ink' : 'text-muted',
+                'h-7 min-w-9 cursor-not-allowed rounded-full px-2 text-xs font-extrabold tabular-nums',
+                speed === 1 ? 'bg-surface-raised text-ink shadow-soft' : 'text-subtle',
               )}
             >
               {speed}x
@@ -42,9 +51,10 @@ export function SimulationControls() {
         </fieldset>
       </Tooltip>
 
-      <div aria-hidden="true" className="mx-1 h-5 w-px bg-border" />
-
-      <p className="px-2 text-xs text-muted">Simulação parada</p>
+      <p className="flex items-center gap-1.5 pr-3 pl-1.5 text-xs font-bold text-muted">
+        <span aria-hidden="true" className="size-2 rounded-full bg-subtle/60" />
+        Simulação parada
+      </p>
     </div>
   )
 }

@@ -3,7 +3,7 @@ import { cx } from '../../utils/cx.ts'
 import { Tooltip } from './Tooltip.tsx'
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost'
-type ButtonSize = 'sm' | 'md'
+type ButtonSize = 'sm' | 'md' | 'lg'
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant
@@ -16,24 +16,37 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   unavailableReason?: string
 }
 
-const variantClasses: Record<ButtonVariant, string> = {
-  primary: 'bg-accent text-white hover:bg-accent-hover',
-  secondary: 'border border-border-strong bg-surface text-ink hover:bg-surface-muted',
-  ghost: 'text-ink hover:bg-surface-muted',
+const variantClasses: Record<ButtonVariant, { base: string; interactive: string }> = {
+  primary: {
+    base: 'bg-accent text-white shadow-key',
+    interactive: 'hover:bg-accent-hover active:shadow-key-pressed',
+  },
+  secondary: {
+    base: 'border border-border bg-surface-raised text-ink shadow-soft',
+    interactive: 'hover:border-border-strong hover:bg-surface',
+  },
+  ghost: {
+    base: 'text-ink',
+    interactive: 'hover:bg-surface-muted',
+  },
 }
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: 'h-8 gap-1.5 px-2.5 text-xs',
-  md: 'h-9 gap-2 px-3 text-sm',
+  sm: 'h-8 gap-1.5 px-3 text-xs',
+  md: 'h-10 gap-2 px-4 text-sm',
+  lg: 'h-11 gap-2 px-5 text-sm',
 }
 
 function buttonClasses(variant: ButtonVariant, size: ButtonSize, unavailable: boolean) {
+  const { base, interactive } = variantClasses[variant]
   return cx(
-    'inline-flex shrink-0 items-center justify-center rounded-control font-medium select-none',
-    'transition-colors duration-150 ease-calm',
+    'inline-flex shrink-0 items-center justify-center rounded-full font-bold tracking-[0.01em] select-none',
+    'transition-[background-color,border-color,box-shadow,transform] duration-200 ease-spring',
     sizeClasses[size],
-    variantClasses[variant],
-    unavailable && 'cursor-not-allowed opacity-50 hover:bg-[unset]',
+    base,
+    unavailable
+      ? 'cursor-not-allowed opacity-45 saturate-50'
+      : cx(interactive, 'hover:-translate-y-px active:translate-y-0 active:scale-[0.97]'),
   )
 }
 

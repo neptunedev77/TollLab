@@ -68,10 +68,13 @@ São três e nunca se misturam:
 
 | # | Decisão | Escolha | Justificação |
 | --- | --- | --- | --- |
-| D12 | Tema | Um único tema claro e calmo. Os tokens estão em `src/index.css` (`@theme` do Tailwind v4) | Mantém o âmbito pequeno. Os tokens permitem acrescentar um tema escuro mais tarde sem mexer nos componentes. |
+| D12 | Tema | Um único tema claro "cozy": neutros quentes, raios generosos (14/20/28 px), botões em pílula com "lábio" tátil, sombras suaves e micro-interações com uma ligeira mola. Os tokens estão em `src/index.css` (`@theme` do Tailwind v4) | Dá uma experiência lúdica e fluida sem mecânicas de jogo. Os tokens permitem acrescentar um tema escuro mais tarde sem mexer nos componentes. |
+| D12a | Tipografia | Nunito Variable via `@fontsource-variable/nunito` (licença OFL-1.1), incluída no bundle | É arredondada e legível em números, e funciona offline, sem pedidos a serviços externos. O browser só descarrega o subconjunto latino. |
+| D12b | Layout em ilhas | O mapa e o painel são cartões flutuantes sobre um fundo quente, separados por 8 px | Visual mais suave; o mapa fica com ≈ 74% da largura a 1280 e a 1440. |
+| D12c | Animações de entrada | Não se usa fade de opacidade em conteúdo essencial | Se a animação for congelada (separador em segundo plano, por exemplo), o conteúdo nunca fica invisível. |
 | D13 | Ações ainda sem modelo | Usam `aria-disabled` com o motivo num tooltip, em vez de `disabled` | Ficam focáveis e explicam porque estão indisponíveis. Não fingem fazer nada, por isso não são botões decorativos. |
 | D14 | Tooltips | O balão é desenhado num portal com posição fixa e limitado à janela. A descrição acessível fica sempre junto ao alvo | Evita cortes e scroll horizontal dentro do painel lateral. |
-| D15 | Painel lateral | Fica ao lado do mapa (não sobreposto), com 320 px abaixo de 1440 px de largura e 352 px a partir daí. Quando fechado fica `inert` | O mapa ocupa ≈ 75% a 1280 e a 1440 e nunca fica tapado. |
+| D15 | Painel lateral | Fica ao lado do mapa (não sobreposto), com 312 px abaixo de 1440 px de largura e 344 px a partir daí. Abre e fecha a deslizar. Quando fechado fica `inert` | O mapa ocupa ≈ 74% a 1280 e a 1440 e nunca fica tapado. |
 | D16 | Animação de interface | Sem Framer Motion por agora: transições CSS e redução global com `prefers-reduced-motion` | Ainda não há animações complexas que justifiquem a dependência. |
 | D17 | Galeria do design system | `?gallery`, só em desenvolvimento; eliminada do build de produção | Permite rever os componentes isoladamente. |
 

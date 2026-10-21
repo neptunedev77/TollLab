@@ -20,15 +20,18 @@ export function NumberField({ label, value, onChange, unit, min, max, step, erro
   const message = error ?? hint
 
   return (
-    <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="text-xs font-medium text-muted">
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-xs font-bold text-muted">
         {label}
       </label>
       <div
         className={cx(
-          'flex h-9 items-center rounded-control border bg-surface px-2.5 transition-colors duration-150',
-          'focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-focus',
-          error ? 'border-alert' : 'border-border-strong',
+          'flex h-10 items-center rounded-control border-2 bg-surface-muted px-3',
+          'transition-[border-color,background-color,box-shadow] duration-200 ease-calm',
+          'focus-within:bg-surface-raised focus-within:shadow-[0_0_0_4px_var(--color-accent-soft)]',
+          error
+            ? 'border-alert/70 focus-within:border-alert'
+            : 'border-transparent hover:border-border focus-within:border-accent',
         )}
       >
         <input
@@ -42,12 +45,15 @@ export function NumberField({ label, value, onChange, unit, min, max, step, erro
           aria-invalid={error ? true : undefined}
           aria-describedby={message ? messageId : undefined}
           onChange={(event) => onChange(event.target.value)}
-          className="w-full min-w-0 bg-transparent text-sm tabular-nums text-ink outline-none"
+          className="w-full min-w-0 bg-transparent text-sm font-semibold tabular-nums text-ink outline-none"
         />
-        {unit && <span className="ml-1.5 text-xs text-subtle">{unit}</span>}
+        {unit && <span className="ml-1.5 text-xs font-bold text-subtle">{unit}</span>}
       </div>
       {message && (
-        <p id={messageId} className={cx('text-xs', error ? 'text-alert' : 'text-subtle')}>
+        <p
+          id={messageId}
+          className={cx('text-xs', error ? 'font-semibold text-alert motion-safe:animate-fade-up' : 'text-subtle')}
+        >
           {message}
         </p>
       )}

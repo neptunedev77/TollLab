@@ -9,7 +9,7 @@ export function MapControls() {
       role="toolbar"
       aria-label="Navegação do mapa"
       aria-orientation="vertical"
-      className="flex flex-col gap-0.5 rounded-card border border-border bg-surface-raised p-1 shadow-float"
+      className="flex flex-col gap-1 rounded-[1.25rem] bg-surface-raised/90 p-1.5 shadow-float ring-1 ring-border/70 backdrop-blur-md"
     >
       <IconButton label="Aproximar" icon={<Plus className="size-4" />} tooltipSide="left" unavailableReason={UNAVAILABLE} />
       <IconButton label="Afastar" icon={<Minus className="size-4" />} tooltipSide="left" unavailableReason={UNAVAILABLE} />
@@ -19,7 +19,7 @@ export function MapControls() {
         tooltipSide="left"
         unavailableReason={UNAVAILABLE}
       />
-      <div aria-hidden="true" className="mx-1 my-0.5 h-px bg-border" />
+      <div aria-hidden="true" className="mx-2 h-px bg-border" />
       <IconButton label="Camadas" icon={<Layers className="size-4" />} tooltipSide="left" unavailableReason={UNAVAILABLE} />
     </div>
   )

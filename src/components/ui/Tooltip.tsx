@@ -62,7 +62,7 @@ export function Tooltip({ content, side = 'top', children }: TooltipProps) {
             role="tooltip"
             aria-hidden="true"
             style={style ?? { left: 0, top: 0, visibility: 'hidden' }}
-            className="pointer-events-none fixed z-50 w-max max-w-60 rounded-md bg-ink px-2 py-1 text-xs leading-snug text-white shadow-float motion-safe:animate-[tooltip-in_120ms_ease-out]"
+            className="pointer-events-none fixed z-50 w-max max-w-60 rounded-xl bg-ink/95 px-2.5 py-1.5 text-xs leading-snug font-semibold text-white shadow-float motion-safe:animate-pop-in"
           >
             {content}
           </span>,
