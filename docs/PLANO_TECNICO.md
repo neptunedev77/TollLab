@@ -1,0 +1,91 @@
+# TollLab — Plano técnico
+
+Versão inicial (Etapa 0, 21/10/2026). Este documento é atualizado sempre que uma decisão mudar.
+
+## 1. Ambiente verificado
+
+| Ferramenta | Versão |
+| --- | --- |
+| Sistema operativo | Windows 11 Pro 10.0.26300 |
+| Node.js | 24.21.0 |
+| npm | 11.19.0 |
+| git | 2.55.0.windows.5 |
+| pnpm / yarn | não instalados (usa-se npm) |
+
+Versões base instaladas: Vite 8.3.5, React 19.3.1, TypeScript 6.0.3, Vitest 5.0.5, oxlint 1.89.0.
+
+## 2. Arquitetura
+
+O princípio orientador é **um núcleo de domínio em TypeScript puro**, sem dependências de React, Three.js
+ou do DOM, envolvido por camadas finas de apresentação.
+
+```
+src/
+  domain/        tipos e invariantes (nós, arestas, portagens, veículos, tarifas, cenários)
+  simulation/    motor: percursos, procura, relógio, cobrança, economia (TS puro, testável em Node)
+  data/          rede de demonstração esquemática + validação
+  store/         Zustand: estado da UI e ponte com o motor
+  components/
+    map/         renderização do mapa e interação (pan/zoom/seleção)
+    scene3d/     pórticos e veículos 3D (instancing)
+    panels/      painel lateral contextual
+    analytics/   métricas e comparação de cenários
+  utils/         PRNG com semente, geometria, formatação
+  tests/         testes transversais (os unitários ficam junto ao código ou aqui)
+```
+
+Fluxo de dados: `UI → store (ações) → motor (funções puras / instância do simulador) → resultados → store → UI`.
+O motor nunca importa nada de `components/` nem de `store/`. Esta regra será verificada por um teste
+de imports ou por uma regra de lint quando o código existir.
+
+### Sistemas de coordenadas
+
+São três e nunca se misturam:
+
+1. **Topologia**: IDs de nós e arestas, sem qualquer coordenada.
+2. **Coordenadas do mundo esquemático**: um plano cartesiano arbitrário (unidades "esquemáticas"), onde
+   cada aresta tem uma polilinha. As portagens guardam `{ edgeId, t }` com `t ∈ [0, 1]` ao longo da
+   polilinha, por isso ficam sempre ancoradas à estrada.
+3. **Coordenadas de ecrã**: só existem na camada de renderização, através da câmara ou do viewport.
+
+## 3. Decisões técnicas
+
+| # | Decisão | Escolha | Justificação |
+| --- | --- | --- | --- |
+| D1 | Fonte do mapa | **Vetorial esquemático**, não MapLibre | Não há geometria real validada nem licença definida, e a aplicação tem de funcionar offline e sem serviços externos. A especificação proíbe inventar coordenadas ou alegar precisão. Uma interface `MapSource` permite trocar mais tarde para dados reais (GeoJSON + MapLibre). |
+| D2 | Renderização do mapa e 3D | **Proposta: uma única cena WebGL com React Three Fiber** (câmara ortográfica com inclinação ligeira), estradas como faixas, pórticos 3D e veículos com `InstancedMesh` | Evita sincronizar uma camada SVG com uma camada 3D separada (fonte de desfasamentos), dá instancing nativo para muitos veículos e permite picking por raycasting. A alternativa é SVG para o mapa mais Canvas 2D para veículos, sem 3D: é mais simples, mas fica aquém do requisito de pórticos e veículos 3D. **Requer confirmação antes da Etapa 3.** |
+| D3 | Estado | **Zustand** | É leve e tem uma API "vanilla" que permite ao relógio da simulação escrever fora do ciclo do React. Os componentes subscrevem só o que precisam. |
+| D4 | Lint | **oxlint** (padrão do create-vite 9) com os plugins react, typescript, jsx-a11y e vitest; falha com warnings | Uma só dependência, muito rápido e sem configuração ESLint extensa. Se faltar alguma regra crítica, adiciona-se ESLint pontualmente. |
+| D5 | TypeScript | `strict`, `noUncheckedIndexedAccess`, `noImplicitOverride` e `no-explicit-any` como erro | O modelo de grafo tem muitos acessos por ID; `noUncheckedIndexedAccess` obriga a tratar referências em falta. |
+| D6 | Aleatoriedade | PRNG próprio com semente (ex.: mulberry32) em `utils/` | Garante reprodutibilidade sem dependência externa. `Math.random` fica proibido no motor. |
+| D7 | Relógio | Passo fixo de simulação (ex.: 100 ms simulados), independente do `requestAnimationFrame`. O render interpola entre estados | Cumpre a separação simulação/render, a reprodutibilidade e as velocidades 1x/2x/4x. |
+| D8 | Regra de cobrança (proposta) | **Por pórtico**: cada travessia de um pórtico ativo que pertença ao percurso gera um evento com ID único e tarifa por classe de veículo | É a regra mais simples, consistente e testável. Os totais são sempre agregações de eventos. |
+| D9 | Persistência | `localStorage` com envelope versionado `{ version, data }`, validação ao carregar e migrações explícitas | Funciona offline. Dados corrompidos repõem a configuração por omissão com aviso, sem bloquear o arranque. |
+| D10 | Testes | Vitest (unitários e integração) agora; Testing Library + jsdom na Etapa 1; Playwright na Etapa 9 | Cada dependência entra quando é precisa. |
+| D11 | Estrutura | O projeto fica na raiz da pasta/repositório `TollLab` | O repositório remoto estava vazio e a pasta só continha a especificação. |
+
+## 4. Dependências previstas (ainda não instaladas)
+
+| Etapa | Pacotes |
+| --- | --- |
+| 1 | `tailwindcss`, `@tailwindcss/vite`, `lucide-react`, `framer-motion` (ou `motion`), `@testing-library/react`, `@testing-library/jest-dom`, `jsdom` |
+| 3 / 7 | `three`, `@react-three/fiber`, `@react-three/drei` (só se for útil), `@types/three` |
+| 4 | `zustand` |
+| 9 | `@playwright/test` |
+
+## 5. Riscos
+
+| Risco | Impacto | Mitigação |
+| --- | --- | --- |
+| Versões muito recentes (Vite 8, TS 6, Vitest 5, React 19.3) podem ainda não ser suportadas por alguns plugins (Tailwind, R3F) | Instalação ou build falham | Verificar `peerDependencies` antes de instalar; fixar versões compatíveis; documentar. |
+| Desempenho com centenas de veículos 3D | FPS baixo | `InstancedMesh`, matrizes escritas fora do React, limite configurável de veículos e degradação gradual. |
+| Sincronizar o evento visual com o evento económico | Cobrança no sítio errado | A cobrança acontece no motor (passo fixo); o render só reflete os eventos já emitidos. Haverá um teste de integração. |
+| Rede esquemática confundida com cartografia real | Credibilidade | Aviso permanente "Mapa esquemático — não cartográfico", sem coordenadas geográficas e sem distâncias reais não documentadas. |
+| Convergência do congestionamento (feedback volume → tempo → escolha) | Oscilações e resultados instáveis | Atribuição incremental ou função BPR com amortecimento e iterações limitadas; testes de reprodutibilidade. |
+| Acessibilidade de um mapa WebGL | Utilizadores de teclado excluídos | Lista navegável por teclado de troços e portagens no painel, espelhada na seleção do mapa; foco visível. |
+| Ambiente Windows (caminhos, finais de linha) | Ruído nos diffs | `.gitattributes` com `eol=lf`. |
+
+## 6. Questões em aberto para o utilizador
+
+1. **D2**: confirmar a cena WebGL única (R3F) para o mapa e o 3D, ou preferir SVG 2D com 3D só nos pórticos e veículos.
+2. **D8**: confirmar a cobrança por pórtico (alternativas: por segmento ou por percurso).
