@@ -2,7 +2,8 @@ import { createStore } from 'zustand/vanilla'
 import { layoutBounds, type Bounds } from '../domain/geometry.ts'
 import { formatEuros } from '../domain/money.ts'
 import * as tollOps from '../domain/tolls.ts'
-import type { EdgeId, NetworkDataset, NodeId, TollId, TollPoint, VehicleClass } from '../domain/types.ts'
+import { DEFAULT_SEED, demoDemand } from '../data/demoDemand.ts'
+import type { DemandSpec, EdgeId, NetworkDataset, NodeId, TollId, TollPoint, VehicleClass } from '../domain/types.ts'
 import {
   clampCenter,
   easeOutCubic,
@@ -20,7 +21,7 @@ export type Selection =
   | { readonly kind: 'edge'; readonly id: EdgeId }
   | { readonly kind: 'toll'; readonly id: TollId }
 
-export type MapLayer = 'labels' | 'tolls' | 'alternatives'
+export type MapLayer = 'labels' | 'tolls' | 'alternatives' | 'traffic'
 export type MapLayers = Readonly<Record<MapLayer, boolean>>
 
 export type MapMode = { readonly kind: 'idle' } | { readonly kind: 'placing' }
@@ -44,6 +45,10 @@ interface HistoryEntry {
 
 export interface MapState {
   readonly dataset: NetworkDataset
+  /** Procura usada pelo motor de percursos (pressupostos do cenário). */
+  readonly demand: DemandSpec
+  /** Semente das simulações: mesma semente e parâmetros → mesmos resultados. */
+  readonly seed: number
   /** Pórticos editáveis do cenário atual (o `dataset.tolls` original nunca é alterado). */
   readonly tolls: readonly TollPoint[]
   readonly selection: Selection | null
@@ -101,6 +106,8 @@ export interface MapStoreOptions {
   readonly animate?: boolean
   /** Relógio injetável (testes do agrupamento do histórico). */
   readonly now?: () => number
+  readonly demand?: DemandSpec
+  readonly seed?: number
 }
 
 function prefersReducedMotion(): boolean {
@@ -166,10 +173,12 @@ export function createMapStore(dataset: NetworkDataset, options: MapStoreOptions
 
     return {
       dataset,
+      demand: options.demand ?? demoDemand,
+      seed: options.seed ?? DEFAULT_SEED,
       tolls: dataset.tolls,
       selection: null,
       hover: null,
-      layers: { labels: true, tolls: true, alternatives: true },
+      layers: { labels: true, tolls: true, alternatives: true, traffic: false },
       mode: { kind: 'idle' },
       drag: null,
       notice: null,

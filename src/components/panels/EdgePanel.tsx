@@ -2,7 +2,10 @@ import { Clock, Gauge, Plus, Ruler } from 'lucide-react'
 import { formatEuros } from '../../domain/money.ts'
 import { nodeName } from '../../domain/summary.ts'
 import type { RoadEdge } from '../../domain/types.ts'
+import { edgeLoad } from '../../simulation/assignment.ts'
+import { useAssignment } from '../../store/useAssignment.ts'
 import { useMapStore } from '../../store/useMapStore.ts'
+import { formatInteger, formatMinutes, formatPercent } from '../../utils/format.ts'
 import { Badge } from '../ui/Badge.tsx'
 import { Button } from '../ui/Button.tsx'
 import { Metric } from '../ui/Metric.tsx'
@@ -21,6 +24,13 @@ export function EdgePanel({ edge }: { edge: RoadEdge }) {
   const tolls = allTolls.filter((toll) => toll.edgeId === edge.id).sort((a, b) => a.position - b.position)
   const motorway = edge.roadClass === 'motorway'
   const illustrative = dataset.illustrativeValues ? ' · ilustrativo' : ''
+  const assignment = useAssignment()
+  const volume = assignment?.edgeVolumes.get(edge.id)
+  const directional = assignment ? [...assignment.flows.values()].filter((flow) => flow.edgeId === edge.id) : []
+  const busiest = directional.reduce<(typeof directional)[number] | undefined>(
+    (worst, flow) => (!worst || flow.volume > worst.volume ? flow : worst),
+    undefined,
+  )
 
   return (
     <div className="flex flex-col gap-5 p-5 motion-safe:animate-settle">
@@ -62,8 +72,20 @@ export function EdgePanel({ edge }: { edge: RoadEdge }) {
               tone="peach"
             />
           </div>
-          <Metric label="Tráfego estimado" hint="Sem simulação" />
-          <Metric label="Tempo estimado" hint="Sem simulação" />
+          <Metric
+            label="Tráfego estimado"
+            value={volume === undefined ? undefined : formatInteger(volume)}
+            hint={
+              assignment
+                ? `veíc./h, dois sentidos · ${formatPercent(edgeLoad(assignment, edge.id))} da capacidade no sentido mais carregado`
+                : 'Sem simulação'
+            }
+          />
+          <Metric
+            label="Tempo estimado"
+            value={busiest ? formatMinutes(busiest.timeMin) : undefined}
+            hint={busiest ? 'Com congestionamento, no sentido mais carregado' : 'Sem simulação'}
+          />
         </dl>
       </section>
 

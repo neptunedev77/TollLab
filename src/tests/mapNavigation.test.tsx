@@ -104,12 +104,13 @@ describe('navegação do mapa', () => {
     setup()
     await user.click(screen.getByRole('button', { name: 'Camadas' }))
 
-    const traffic = screen.getByRole('switch', { name: 'Tráfego' })
-    expect(traffic).toBeDisabled()
-    expect(traffic).toHaveAccessibleDescription('Requer simulação')
+    const revenue = screen.getByRole('switch', { name: 'Receita' })
+    expect(revenue).toBeDisabled()
+    expect(revenue).toHaveAccessibleDescription('Requer o registo de cobranças')
+    expect(screen.getByRole('switch', { name: 'Tráfego (volume/capacidade)' })).toBeEnabled()
 
     await user.keyboard('{Escape}')
-    expect(screen.queryByRole('switch', { name: 'Tráfego' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('switch', { name: 'Receita' })).not.toBeInTheDocument()
   })
 
   it('a legenda começa recolhida e abre e fecha', async () => {

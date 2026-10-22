@@ -166,14 +166,23 @@ export interface DemandSpec {
 
 export type VehicleStatus = 'pending' | 'travelling' | 'arrived' | 'no-route'
 
+/** Um passo de um percurso: o troço e o sentido em que é percorrido. */
+export interface RouteStep {
+  readonly edgeId: EdgeId
+  readonly from: NodeId
+  readonly to: NodeId
+}
+
 export interface Vehicle {
   readonly id: VehicleId
   readonly originId: NodeId
   readonly destinationId: NodeId
   readonly vehicleClass: VehicleClass
   readonly profileId: ProfileId
-  /** Sequência de troços percorridos, ou `null` quando não existe percurso válido. */
-  readonly route: readonly EdgeId[] | null
+  /** Valor do tempo deste condutor (perfil com variação controlada), em euros por hora. */
+  readonly valueOfTimeEurPerHour: number
+  /** Sequência de passos ligados, ou `null` quando não existe percurso válido (nunca há "saltos"). */
+  readonly route: readonly RouteStep[] | null
   readonly status: VehicleStatus
 }
 

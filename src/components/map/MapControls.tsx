@@ -10,10 +10,11 @@ const LAYER_OPTIONS: ReadonlyArray<{ layer: MapLayer; label: string }> = [
   { layer: 'labels', label: 'Nomes das cidades' },
   { layer: 'tolls', label: 'Pórticos' },
   { layer: 'alternatives', label: 'Vias alternativas' },
+  { layer: 'traffic', label: 'Tráfego (volume/capacidade)' },
 ]
 
 /** Camadas que dependem de resultados da simulação; visíveis, mas indisponíveis por agora. */
-const SIMULATION_LAYERS = ['Tráfego', 'Preço', 'Receita'] as const
+const SIMULATION_LAYERS = ['Preço', 'Receita'] as const
 
 export function MapControls() {
   const zoomBy = useMapStore((state) => state.zoomBy)
@@ -93,7 +94,7 @@ function LayersMenu() {
           </div>
           <div className="mt-2 border-t border-border pt-2">
             {SIMULATION_LAYERS.map((label) => (
-              <Toggle key={label} label={label} checked={false} disabled hint="Requer simulação" />
+              <Toggle key={label} label={label} checked={false} disabled hint="Requer o registo de cobranças" />
             ))}
           </div>
         </fieldset>

@@ -21,7 +21,7 @@ function importsOf(file: string): string[] {
 const FORBIDDEN = [/^react/, /^three/, /^@react-three/, /\/components\//, /\/store\//, /^zustand/]
 
 describe('arquitetura', () => {
-  it.each(['domain', 'data'])('src/%s não depende de React, renderização nem estado da UI', (folder) => {
+  it.each(['domain', 'data', 'simulation'])('src/%s não depende de React, renderização nem estado da UI', (folder) => {
     const files = sourceFiles(join(SRC, folder))
     expect(files.length).toBeGreaterThan(0)
     const violations = files.flatMap((file) =>

@@ -1,6 +1,8 @@
-import { Car, Coins, Info, Plus, RotateCcw, Save, Ticket } from 'lucide-react'
+import { Car, Clock, Coins, Info, Plus, RotateCcw, Route, Save, Ticket } from 'lucide-react'
 import type { NetworkLoadResult } from '../../data/loadNetwork.ts'
 import type { TollPoint } from '../../domain/types.ts'
+import { useAssignment } from '../../store/useAssignment.ts'
+import { formatInteger, formatMinutes, formatPercent } from '../../utils/format.ts'
 import { Button } from '../ui/Button.tsx'
 import { Metric } from '../ui/Metric.tsx'
 
@@ -23,12 +25,15 @@ interface OverviewPanelProps {
 }
 
 /**
- * Estado "sem seleção" do painel lateral. As contagens vêm dos pórticos atuais; tráfego e receita
- * ficam vazios até haver simulação, em vez de mostrarem números inventados.
+ * Estado "sem seleção" do painel lateral. As contagens vêm dos pórticos atuais e o tráfego do motor
+ * de percursos; a receita fica vazia até existir o registo de cobranças, em vez de um número inventado.
  */
 export function OverviewPanel({ networkLoad, editing }: OverviewPanelProps) {
   const tolls = editing?.tolls ?? (networkLoad.status === 'ready' ? networkLoad.dataset.tolls : null)
   const activeTolls = tolls?.filter((toll) => toll.active).length
+  const assignment = useAssignment()
+  const summary = assignment?.summary
+  const seed = assignment?.seed
 
   return (
     <div className="flex flex-col gap-5 p-5">
@@ -48,7 +53,31 @@ export function OverviewPanel({ networkLoad, editing }: OverviewPanelProps) {
             icon={<Ticket className="size-4" />}
             tone="sky"
           />
-          <Metric label="Tráfego atual" hint="Sem simulação" icon={<Car className="size-4" />} tone="mint" />
+          <Metric
+            label="Tráfego atual"
+            value={summary ? formatInteger(summary.routed) : undefined}
+            hint={
+              summary
+                ? `veíc./h${summary.noRoute > 0 ? ` · ${formatInteger(summary.noRoute)} sem percurso` : ''}`
+                : 'Sem simulação'
+            }
+            icon={<Car className="size-4" />}
+            tone="mint"
+          />
+          <Metric
+            label="Evitam portagens"
+            value={summary ? formatInteger(summary.avoidingTolls) : undefined}
+            hint={summary && summary.routed > 0 ? `${formatPercent(summary.avoidingTolls / summary.routed)} dos veículos` : undefined}
+            icon={<Route className="size-4" />}
+            tone="peach"
+          />
+          <Metric
+            label="Tempo médio"
+            value={summary?.averageTimeMin == null ? undefined : formatMinutes(summary.averageTimeMin)}
+            hint={summary ? 'por viagem' : undefined}
+            icon={<Clock className="size-4" />}
+            tone="sky"
+          />
           <div className="col-span-2">
             <Metric
               label="Receita bruta do período"
@@ -58,6 +87,11 @@ export function OverviewPanel({ networkLoad, editing }: OverviewPanelProps) {
             />
           </div>
         </dl>
+        {summary && (
+          <p className="px-1 text-[0.6875rem] leading-snug text-subtle">
+            Estimativa do motor de percursos para uma hora de procura de demonstração (semente {seed}).
+          </p>
+        )}
       </section>
 
       <section aria-labelledby="actions-title" className="flex flex-col gap-2">

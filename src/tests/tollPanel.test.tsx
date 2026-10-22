@@ -131,3 +131,27 @@ describe('painel do pórtico ↔ store', () => {
     expect(within(panel()).getByText(/62 % do troço/)).toBeInTheDocument()
   })
 })
+
+describe('resultados do motor no painel', () => {
+  it('aumentar a tarifa aumenta o tráfego que evita o pórtico', async () => {
+    const user = userEvent.setup()
+    await openPenafielToll(user)
+    const avoiders = () => Number((within(panel()).getByText('Tráfego que escolhe alternativas').closest('div')?.textContent ?? '').replace(/\D+/g, ''))
+    const before = avoiders()
+
+    const field = within(panel()).getByRole('textbox', { name: /Valor exato \(Classe 1\)/ })
+    await user.clear(field)
+    await user.type(field, '9')
+    await vi.waitFor(() => expect(avoiders()).toBeGreaterThan(before))
+  })
+
+  it('o troço mostra o tráfego estimado e o tempo com congestionamento', async () => {
+    const user = userEvent.setup()
+    render(<App mapStoreOptions={{ animate: false }} />)
+    await user.click(screen.getByRole('button', { name: 'Porto' }))
+    await user.click(within(panel()).getByRole('button', { name: /A3.*Nó da Maia/ }))
+
+    expect(within(panel()).getByText('Tráfego estimado').closest('div')).toHaveTextContent(/veíc\.\/h, dois sentidos/)
+    expect(within(panel()).getByText('Tempo estimado').closest('div')).toHaveTextContent(/min/)
+  })
+})

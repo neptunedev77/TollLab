@@ -3,7 +3,7 @@ import { cx } from '../../utils/cx.ts'
 import { IconButton } from '../ui/IconButton.tsx'
 import { Tooltip } from '../ui/Tooltip.tsx'
 
-const UNAVAILABLE = 'disponível quando o motor de simulação estiver ativo'
+const UNAVAILABLE = 'disponível com a animação do tráfego'
 const SPEEDS = [1, 2, 4] as const
 
 /**

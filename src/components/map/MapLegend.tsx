@@ -1,12 +1,15 @@
 import { ChevronDown } from 'lucide-react'
 import { useId, useState, type ReactNode } from 'react'
 import { cx } from '../../utils/cx.ts'
-import { SCENE_COLORS } from '../scene3d/palette.ts'
+import { useMapStore } from '../../store/useMapStore.ts'
+import { SCENE_COLORS, TRAFFIC_THRESHOLDS } from '../scene3d/palette.ts'
 
 export function MapLegend() {
   // Começa recolhida para não tapar a rede; abre com um clique.
   const [open, setOpen] = useState(false)
   const listId = useId()
+  const traffic = useMapStore((state) => state.layers.traffic)
+  const percent = (value: number) => `${Math.round(value * 100)}%`
 
   return (
     <div className="w-44 rounded-card bg-surface-raised/90 p-1.5 shadow-float ring-1 ring-border/70 backdrop-blur-md">
@@ -25,8 +28,20 @@ export function MapLegend() {
       </button>
       {open && (
         <ul id={listId} className="flex flex-col gap-1 px-2 pt-1 pb-1.5 text-[0.6875rem] font-semibold text-muted">
-          <Item swatch={<Line color={SCENE_COLORS.motorway} thick />}>Autoestrada</Item>
-          <Item swatch={<Line color={SCENE_COLORS.alternative} />}>Via alternativa</Item>
+          {traffic ? (
+            <>
+              <Item swatch={<Line color={SCENE_COLORS.trafficLow} thick />}>Carga &lt; {percent(TRAFFIC_THRESHOLDS.medium)}</Item>
+              <Item swatch={<Line color={SCENE_COLORS.trafficMedium} thick />}>
+                Carga {percent(TRAFFIC_THRESHOLDS.medium)}–{percent(TRAFFIC_THRESHOLDS.high)}
+              </Item>
+              <Item swatch={<Line color={SCENE_COLORS.trafficHigh} thick />}>Carga ≥ {percent(TRAFFIC_THRESHOLDS.high)}</Item>
+            </>
+          ) : (
+            <>
+              <Item swatch={<Line color={SCENE_COLORS.motorway} thick />}>Autoestrada</Item>
+              <Item swatch={<Line color={SCENE_COLORS.alternative} />}>Via alternativa</Item>
+            </>
+          )}
           <Item swatch={<Dot ring={SCENE_COLORS.cityRing} />}>Cidade</Item>
           <Item swatch={<Dot ring={SCENE_COLORS.interchangeRing} small />}>Nó de ligação</Item>
           <Item swatch={<Gate color={SCENE_COLORS.tollActive} />}>Pórtico ativo</Item>

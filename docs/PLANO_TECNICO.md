@@ -133,6 +133,25 @@ O script de extração (fora do repositório) lê o GeoJSON do Natural Earth, es
 | D44 | Classes | Tarifa editável por classe (1–4), independente das restantes | Não há regra que obrigue a classe 2 a custar mais do que a classe 1; fica à escolha do utilizador. |
 | D45 | Acessibilidade da edição | A posição no troço também se edita com um slider (teclado); Delete remove o pórtico selecionado com o mapa focado | Mover e remover não dependem do rato. |
 
+### Motor de percursos e procura (Etapa 5)
+
+Código em `src/simulation/` (TypeScript puro; o teste de arquitetura garante que não importa React, three.js nem o store).
+
+| # | Decisão | Escolha | Justificação |
+| --- | --- | --- | --- |
+| D46 | Custo generalizado | `tempo + portagem ÷ (VOT/60)`, em minutos equivalentes; VOT = valor do tempo do condutor (€/h) | É a forma padrão de juntar tempo e preço; uma portagem "vale" os minutos que o condutor pagaria para os poupar. |
+| D47 | Perfis | Com pressa 20 €/h (30%), Equilibrado 10 €/h (45%), Poupado 4 €/h (25%), ilustrativos | Três perfis simples bastam para escolhas diferentes perante a mesma tarifa. |
+| D48 | Variação controlada | VOT de cada veículo com ±15% (uniforme) em torno do perfil, arredondado a 0,1 €/h; PRNG mulberry32 com semente (2026 por omissão) | Evita escolhas "em bloco" e mantém resultados reprodutíveis: mesma semente e parâmetros → resultados idênticos (testado). |
+| D49 | Caminhos | Dijkstra sobre a adjacência dirigida (respeita sentidos únicos); desempate por ID do troço | Só segue ligações existentes e é determinístico. Na rede de 13 nós a pesquisa linear é suficiente. |
+| D50 | Congestionamento | BPR por sentido, `t = t0·(1 + 0,15·(v/c)^4)`; afetação incremental em 5 lotes (ordem baralhada com a semente); cada veículo decide uma vez | É simples, coerente com volume e capacidade e não oscila. Não é um equilíbrio exato (Wardrop); fica documentado como aproximação. |
+| D51 | Sem percurso | Veículo com `route: null` e estado `no-route`, contado em `summary.noRoute`; não entra em volumes | Nunca há teletransporte (testado com sentidos únicos que impedem o regresso). |
+| D52 | "Evitou portagens" | Um veículo evita portagens se paga menos do que pagaria no percurso mais rápido (só tempo, com os tempos finais); por pórtico, conta quem o teria no percurso mais rápido e escolheu outro caminho | Uma definição mensurável e independente da tarifa escolhida. |
+| D53 | Procura de demonstração | 24 pares de cidades nos dois sentidos, 7000 viagens numa hora; 88% classe 1. **Pressupostos ilustrativos, não contagens reais** | Com estes valores a rede tem pouco congestionamento (carga máxima ≈ 23%); subir tarifas desvia tráfego de forma visível. |
+| D54 | Integração | `AssignmentProvider` calcula a afetação uma vez por alteração de pórticos (valor diferido com `useDeferredValue`); cerca de 40 ms com 7000 veículos | A interface continua fluida a arrastar sliders; todos os painéis e o mapa leem o mesmo resultado. |
+| D55 | Classes e PCE | Todas as classes contam como 1 veículo no congestionamento; pagam a tarifa da sua classe | Simplificação documentada; equivalentes de ligeiros por classe podem ser acrescentados depois. |
+
+Resultados verificados com a semente 2026 (tarifa da classe 1 no pórtico A3 Maia): 1,85 € → 1714 veíc./h na A3 Maia–Famalicão; 4,00 € → 742; 8,00 € → 145. O tráfego desviado segue sobretudo pela A28 + A7 (via Vila do Conde), não pela N14.
+
 ## 4. Dependências previstas (ainda não instaladas)
 
 | Etapa | Pacotes |

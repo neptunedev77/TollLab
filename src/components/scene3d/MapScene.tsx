@@ -6,10 +6,12 @@ import { project } from '../../data/geo/projection.ts'
 import { edgeCurve, pointAlong, projectOntoPolyline } from '../../domain/geometry.ts'
 import { snapToNetwork } from '../../domain/tolls.ts'
 import type { EdgeId, RoadEdge, RoadNode, SchematicPoint, TollPoint } from '../../domain/types.ts'
+import { edgeLoad } from '../../simulation/assignment.ts'
 import type { MapStore, Selection } from '../../store/mapStore.ts'
+import { useAssignment } from '../../store/useAssignment.ts'
 import { useMapStore, useMapStoreApi } from '../../store/useMapStore.ts'
 import { screenToWorld, TILT_RAD } from '../map/viewMath.ts'
-import { NODE_RADIUS, ROAD_WIDTH, SCENE_COLORS } from './palette.ts'
+import { NODE_RADIUS, ROAD_WIDTH, SCENE_COLORS, trafficColor } from './palette.ts'
 import { buildRibbon } from './ribbon.ts'
 
 /** Arrastos maiores do que isto (px) contam como pan, não como clique. */
@@ -95,6 +97,8 @@ function SceneContent() {
   const hover = useMapStore((state) => state.hover)
   const placing = useMapStore((state) => state.mode.kind === 'placing')
   const draggingId = useMapStore((state) => state.drag?.tollId ?? null)
+  const assignment = useAssignment()
+  const showTraffic = layers.traffic && assignment !== null
   const [ghostState, setGhost] = useState<{ edgeId: EdgeId; position: number } | null>(null)
   // O fantasma só existe em modo de colocação (derivado, sem efeito para o limpar).
   const ghost = placing ? ghostState : null
@@ -171,6 +175,7 @@ function SceneContent() {
             curve={curve}
             selected={is(selection, 'edge', edge.id)}
             hovered={is(hover, 'edge', edge.id)}
+            trafficLoad={showTraffic && assignment ? edgeLoad(assignment, edge.id) : null}
             handlers={roadHandlers(edge, curve)}
           />
         )
@@ -236,12 +241,15 @@ function Road({
   curve,
   selected,
   hovered,
+  trafficLoad,
   handlers,
 }: {
   edge: RoadEdge
   curve: readonly SchematicPoint[]
   selected: boolean
   hovered: boolean
+  /** Carga volume/capacidade quando a camada de tráfego está ligada; `null` caso contrário. */
+  trafficLoad: number | null
   handlers: Handlers & { onPointerMove: (event: ThreeEvent<PointerEvent>) => void }
 }) {
   const motorway = edge.roadClass === 'motorway'
@@ -256,7 +264,9 @@ function Road({
     ? SCENE_COLORS.selected
     : hovered
       ? SCENE_COLORS.hover
-      : motorway
+      : trafficLoad !== null
+        ? trafficColor(trafficLoad)
+        : motorway
         ? SCENE_COLORS.motorway
         : SCENE_COLORS.alternative
 

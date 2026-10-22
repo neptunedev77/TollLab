@@ -35,8 +35,9 @@ describe('App (layout principal)', () => {
     renderApp()
 
     expect(screen.getByText(/Cidades em posições reais/)).toHaveTextContent('não é cartografia oficial')
-    // Tráfego e receita ficam vazios até haver simulação.
-    expect(screen.getAllByText('Sem dados')).toHaveLength(2)
+    // Só a receita fica vazia: depende do registo de cobranças, que ainda não existe.
+    expect(screen.getAllByText('Sem dados')).toHaveLength(1)
+    expect(screen.getByText('Receita bruta do período').closest('div')).toHaveTextContent('Sem dados')
   })
 
   it('mostra as contagens reais da rede carregada', () => {
@@ -45,6 +46,9 @@ describe('App (layout principal)', () => {
     const activeTolls = screen.getByText('Portagens ativas').closest('div')
     expect(activeTolls).toHaveTextContent('5')
     expect(activeTolls).toHaveTextContent('de 6 pórticos')
+    // O tráfego vem do motor de percursos (7000 viagens da procura de demonstração, todas com percurso).
+    expect(screen.getByText('Tráfego atual').closest('div')).toHaveTextContent(/7\s?000/)
+    expect(screen.getByText(/semente 2026/)).toBeInTheDocument()
   })
 
   it('abre e fecha o painel lateral, tirando-o da navegação quando fechado', async () => {

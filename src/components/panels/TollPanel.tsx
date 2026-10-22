@@ -3,7 +3,9 @@ import { useId, useState } from 'react'
 import { centsToInput, formatEuros, parseEuroInput } from '../../domain/money.ts'
 import { nodeName } from '../../domain/summary.ts'
 import { VEHICLE_CLASSES, type TollPoint, type VehicleClass } from '../../domain/types.ts'
+import { useAssignment } from '../../store/useAssignment.ts'
 import { useMapStore } from '../../store/useMapStore.ts'
+import { formatInteger } from '../../utils/format.ts'
 import { cx } from '../../utils/cx.ts'
 import { Badge } from '../ui/Badge.tsx'
 import { Button } from '../ui/Button.tsx'
@@ -33,6 +35,8 @@ export function TollPanel({ toll }: { toll: TollPoint }) {
   const removeToll = useMapStore((state) => state.removeToll)
   const edge = dataset.network.edges.find((candidate) => candidate.id === toll.edgeId)
   const [vehicleClass, setVehicleClass] = useState<VehicleClass>('c1')
+  const assignment = useAssignment()
+  const avoiders = toll.active ? (assignment?.tollAvoiders.get(toll.id) ?? 0) : null
 
   return (
     <div className="flex flex-col gap-5 p-5 motion-safe:animate-settle">
@@ -105,10 +109,20 @@ export function TollPanel({ toll }: { toll: TollPoint }) {
 
       <section aria-label="Resultados do pórtico" className="flex flex-col gap-2">
         <dl className="grid grid-cols-2 gap-2">
-          <Metric label="Passagens" hint="Sem simulação" icon={<Repeat className="size-4" />} tone="sky" />
-          <Metric label="Receita bruta" hint="Sem simulação" icon={<Coins className="size-4" />} tone="peach" />
+          <Metric label="Passagens" hint="Ainda não calculado" icon={<Repeat className="size-4" />} tone="sky" />
+          <Metric label="Receita bruta" hint="Ainda não calculado" icon={<Coins className="size-4" />} tone="peach" />
           <div className="col-span-2">
-            <Metric label="Tráfego que escolhe alternativas" hint="Sem simulação" icon={<Route className="size-4" />} tone="mint" />
+            <Metric
+              label="Tráfego que escolhe alternativas"
+              value={avoiders === null || !assignment ? undefined : formatInteger(avoiders)}
+              hint={
+                avoiders === null
+                  ? 'O pórtico está inativo: não desvia tráfego.'
+                  : 'veíc./h cujo percurso mais rápido passa aqui, mas que escolhem outro caminho'
+              }
+              icon={<Route className="size-4" />}
+              tone="mint"
+            />
           </div>
         </dl>
       </section>

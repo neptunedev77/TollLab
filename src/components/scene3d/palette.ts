@@ -22,6 +22,10 @@ export const SCENE_COLORS = {
   interchangeFill: '#ffffff',
   tollActive: '#e8935a',
   tollInactive: '#b9afa1',
+  /** Camada de tráfego: carga (volume/capacidade) baixa, média e alta. */
+  trafficLow: '#5fb595',
+  trafficMedium: '#e9b44c',
+  trafficHigh: '#d65a4f',
 } as const
 
 /** Larguras das estradas, em unidades do mapa (1 unidade = 250 m). */
@@ -35,3 +39,12 @@ export const ROAD_WIDTH = {
 
 /** Raio dos marcadores de nó, em unidades do mapa. */
 export const NODE_RADIUS = { city: 5.5, interchange: 3.6 } as const
+
+/** Limites de carga (volume/capacidade) da camada de tráfego. */
+export const TRAFFIC_THRESHOLDS = { medium: 0.5, high: 0.85 } as const
+
+export function trafficColor(load: number): string {
+  if (load >= TRAFFIC_THRESHOLDS.high) return SCENE_COLORS.trafficHigh
+  if (load >= TRAFFIC_THRESHOLDS.medium) return SCENE_COLORS.trafficMedium
+  return SCENE_COLORS.trafficLow
+}
