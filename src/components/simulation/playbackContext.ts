@@ -7,6 +7,8 @@ import type { Playback } from '../../simulation/playback.ts'
  */
 export interface PlaybackRuntime {
   engine: Playback | null
+  /** Semente com que o motor atual foi criado (as partidas dependem dela). */
+  engineSeed: number | null
   /** Minuto simulado a desenhar (contínuo; o motor avança em passos fixos até ele). */
   renderMinute: number
   /** Último instante (ms, `performance.now`) em que cada pórtico cobrou uma passagem. */
@@ -24,6 +26,7 @@ export function createPlaybackRuntime(): PlaybackRuntime {
   let callback: (() => void) | null = null
   return {
     engine: null,
+    engineSeed: null,
     renderMinute: 0,
     pulses: new Map(),
     invalidate: () => callback?.(),

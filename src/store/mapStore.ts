@@ -6,6 +6,15 @@ import type { RoadColoring } from '../components/scene3d/palette.ts'
 import { DEFAULT_SEED, demoDemand } from '../data/demoDemand.ts'
 import type { DemandSpec, EdgeId, NetworkDataset, NodeId, TollId, TollPoint, VehicleClass } from '../domain/types.ts'
 import type { PlaybackStats } from '../simulation/playback.ts'
+import { browserStorage, loadScenarios, saveScenarios, type KeyValueStorage } from '../scenarios/persistence.ts'
+import {
+  createScenario,
+  duplicateScenario as duplicateScenarioRecord,
+  nextScenarioName,
+  uniqueScenarioName,
+  updateScenario,
+  type Scenario,
+} from '../scenarios/scenario.ts'
 import {
   clampCenter,
   easeOutCubic,
@@ -47,7 +56,14 @@ export interface Notice {
   readonly tone: 'info' | 'error'
   /** Mostra a ação "Anular". */
   readonly undoable: boolean
+  /** Quando presente, "Anular" repõe este cenário apagado (em vez de usar o histórico de pórticos). */
+  readonly restoreScenario?: Scenario
 }
+
+export type PanelView = 'map' | 'scenarios'
+
+/** Semente máxima aceite (inteiro de 31 bits, positivo). */
+export const MAX_SEED = 2_147_483_647
 
 interface HistoryEntry {
   readonly tolls: readonly TollPoint[]
@@ -76,6 +92,13 @@ export interface MapState {
   readonly drag: { readonly tollId: TollId; readonly before: readonly TollPoint[] } | null
   readonly notice: Notice | null
   readonly playback: PlaybackState
+  /** Cenários guardados (cópias imutáveis e independentes). */
+  readonly scenarios: readonly Scenario[]
+  /** Cenário cuja configuração está carregada no editor, se algum. */
+  readonly activeScenarioId: string | null
+  /** Avisos do carregamento dos cenários guardados (ex.: dados corrompidos ignorados). */
+  readonly scenarioWarnings: readonly string[]
+  readonly panelView: PanelView
   readonly past: readonly HistoryEntry[]
   readonly future: readonly HistoryEntry[]
   readonly viewport: Viewport | null
@@ -102,6 +125,8 @@ export interface MapState {
   removeToll: (id: TollId) => void
   resetTolls: () => void
   undo: () => void
+  /** Ação "Anular" da notificação atual. */
+  undoNotice: () => void
   redo: () => void
   dismissNotice: () => void
 
@@ -112,6 +137,20 @@ export interface MapState {
   setSpeed: (speed: PlaybackSpeed) => void
   /** Uso interno do controlador de reprodução. */
   reportPlayback: (stats: PlaybackStats) => void
+
+  setPanelView: (view: PanelView) => void
+  /** Guarda a configuração atual como cenário novo e torna-o ativo; devolve o ID. */
+  saveScenarioAs: (name?: string) => string | null
+  /** Grava a configuração atual por cima do cenário ativo. */
+  saveActiveScenario: () => void
+  /** Carrega a configuração de um cenário no editor (pórticos e semente). */
+  loadScenario: (id: string) => void
+  duplicateScenario: (id: string) => void
+  renameScenario: (id: string, name: string) => void
+  deleteScenario: (id: string) => void
+  dismissScenarioWarnings: () => void
+  /** Muda a semente das simulações; devolve `false` se não for um inteiro válido. */
+  setSeed: (seed: number) => boolean
 
   setViewport: (viewport: Viewport) => void
   panBy: (dx: number, dy: number) => void
@@ -134,6 +173,8 @@ export interface MapStoreOptions {
   readonly now?: () => number
   readonly demand?: DemandSpec
   readonly seed?: number
+  /** Armazenamento dos cenários; por omissão o `localStorage` (quando disponível). `null` desliga. */
+  readonly storage?: KeyValueStorage | null
 }
 
 function prefersReducedMotion(): boolean {
@@ -149,6 +190,10 @@ export function createMapStore(dataset: NetworkDataset, options: MapStoreOptions
   const now = options.now ?? (() => Date.now())
   let animationFrame: number | null = null
   let noticeId = 0
+  const storage = options.storage === undefined ? browserStorage() : options.storage
+  const defaultDemand = options.demand ?? demoDemand
+  const loaded = loadScenarios(storage, { dataset, defaultDemand })
+  const nowDate = () => new Date(now())
 
   const cancelAnimation = () => {
     if (animationFrame !== null && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(animationFrame)
@@ -168,8 +213,20 @@ export function createMapStore(dataset: NetworkDataset, options: MapStoreOptions
       return toll !== undefined && state.layers.tolls && edgeVisible(toll.edgeId, state.layers)
     }
 
-    const notify = (message: string, tone: Notice['tone'] = 'info', undoable = false) =>
-      set({ notice: { id: ++noticeId, message, tone, undoable } })
+    const notify = (message: string, tone: Notice['tone'] = 'info', undoable = false, restoreScenario?: Scenario) =>
+      set({ notice: { id: ++noticeId, message, tone, undoable, ...(restoreScenario ? { restoreScenario } : {}) } })
+
+    /** Atualiza a lista de cenários e grava-a; avisa se a gravação falhar. */
+    const setScenarios = (scenarios: readonly Scenario[], activeScenarioId = get().activeScenarioId) => {
+      set({ scenarios, activeScenarioId })
+      if (!loaded.canSave) {
+        notify('Os cenários não podem ser guardados neste browser (os existentes foram mantidos intactos).', 'error')
+        return false
+      }
+      const result = saveScenarios(storage, scenarios)
+      if (!result.ok) notify(result.message, 'error')
+      return result.ok
+    }
 
     /** Aplica uma alteração aos pórticos e regista o estado anterior no histórico. */
     const commit = (tolls: readonly TollPoint[], label: string, key?: string, before = get().tolls) => {
@@ -199,7 +256,7 @@ export function createMapStore(dataset: NetworkDataset, options: MapStoreOptions
 
     return {
       dataset,
-      demand: options.demand ?? demoDemand,
+      demand: defaultDemand,
       seed: options.seed ?? DEFAULT_SEED,
       tolls: dataset.tolls,
       selection: null,
@@ -210,6 +267,10 @@ export function createMapStore(dataset: NetworkDataset, options: MapStoreOptions
       drag: null,
       notice: null,
       playback: { status: 'idle', speed: 1, stats: null, resetToken: 0 },
+      scenarios: loaded.scenarios,
+      activeScenarioId: null,
+      scenarioWarnings: loaded.warnings,
+      panelView: 'map',
       past: [],
       future: [],
       viewport: null,
@@ -217,7 +278,8 @@ export function createMapStore(dataset: NetworkDataset, options: MapStoreOptions
 
       select: (selection) => {
         // Só se seleciona o que existe e está visível; caso contrário a seleção não muda.
-        if (isVisible(selection, get())) set({ selection })
+        // Selecionar no mapa volta a mostrar o painel da seleção (mesmo com os cenários abertos).
+        if (isVisible(selection, get())) set({ selection, panelView: 'map' })
       },
 
       clearSelection: () => set({ selection: null }),
@@ -237,7 +299,7 @@ export function createMapStore(dataset: NetworkDataset, options: MapStoreOptions
 
       beginPlacement: () => {
         if (!get().layers.tolls) set({ layers: { ...get().layers, tolls: true } })
-        set({ mode: { kind: 'placing' }, selection: null })
+        set({ mode: { kind: 'placing' }, selection: null, panelView: 'map' })
       },
 
       cancelPlacement: () => set({ mode: { kind: 'idle' } }),
@@ -345,6 +407,17 @@ export function createMapStore(dataset: NetworkDataset, options: MapStoreOptions
 
       dismissNotice: () => set({ notice: null }),
 
+      undoNotice: () => {
+        const { notice } = get()
+        if (notice?.restoreScenario) {
+          const restored = notice.restoreScenario
+          if (!get().scenarios.some((scenario) => scenario.id === restored.id)) setScenarios([...get().scenarios, restored])
+          notify(`Cenário "${restored.name}" reposto.`)
+          return
+        }
+        get().undo()
+      },
+
       play: () => {
         const { playback } = get()
         // Depois de concluída, "Iniciar" recomeça do início.
@@ -370,6 +443,74 @@ export function createMapStore(dataset: NetworkDataset, options: MapStoreOptions
       reportPlayback: (stats) => {
         const { playback } = get()
         set({ playback: { ...playback, stats, status: stats.finished && playback.status === 'running' ? 'finished' : playback.status } })
+      },
+
+      setPanelView: (panelView) => set({ panelView }),
+
+      saveScenarioAs: (name) => {
+        const { scenarios, tolls, demand, seed } = get()
+        const finalName = uniqueScenarioName(scenarios, name?.trim() || nextScenarioName(scenarios))
+        const scenario = createScenario(dataset, { name: finalName, tolls, demand, seed }, { now: nowDate })
+        if (setScenarios([...scenarios, scenario], scenario.id)) notify(`Cenário "${scenario.name}" guardado.`)
+        return scenario.id
+      },
+
+      saveActiveScenario: () => {
+        const { scenarios, activeScenarioId, tolls, demand, seed } = get()
+        const active = scenarios.find((scenario) => scenario.id === activeScenarioId)
+        if (!active) return
+        const updated = updateScenario(dataset, active, { tolls, demand, seed }, nowDate)
+        if (setScenarios(scenarios.map((scenario) => (scenario.id === active.id ? updated : scenario)))) {
+          notify(`Cenário "${updated.name}" atualizado.`)
+        }
+      },
+
+      loadScenario: (id) => {
+        const scenario = get().scenarios.find((candidate) => candidate.id === id)
+        if (!scenario) return
+        // Os pórticos do cenário são imutáveis: as edições seguintes criam listas novas e nunca o alteram.
+        commit(scenario.tolls, `Cenário carregado: ${scenario.name}`)
+        set({ seed: scenario.seed, activeScenarioId: scenario.id, selection: null })
+        get().restart()
+        notify(`Cenário "${scenario.name}" carregado.`, 'info', true)
+      },
+
+      duplicateScenario: (id) => {
+        const { scenarios } = get()
+        const original = scenarios.find((scenario) => scenario.id === id)
+        if (!original) return
+        const copy = duplicateScenarioRecord(original, uniqueScenarioName(scenarios, `${original.name} (cópia)`), { now: nowDate })
+        if (setScenarios([...scenarios, copy])) notify(`Cenário duplicado como "${copy.name}".`)
+      },
+
+      renameScenario: (id, name) => {
+        const { scenarios } = get()
+        const scenario = scenarios.find((candidate) => candidate.id === id)
+        const trimmed = name.trim()
+        if (!scenario || !trimmed || trimmed === scenario.name) return
+        const unique = uniqueScenarioName(scenarios.filter((candidate) => candidate.id !== id), trimmed)
+        setScenarios(scenarios.map((candidate) => (candidate.id === id ? updateScenario(dataset, candidate, { name: unique }, nowDate) : candidate)))
+      },
+
+      deleteScenario: (id) => {
+        const { scenarios, activeScenarioId } = get()
+        const scenario = scenarios.find((candidate) => candidate.id === id)
+        if (!scenario) return
+        const ok = setScenarios(
+          scenarios.filter((candidate) => candidate.id !== id),
+          activeScenarioId === id ? null : activeScenarioId,
+        )
+        if (ok) notify(`Cenário "${scenario.name}" apagado.`, 'info', true, scenario)
+      },
+
+      dismissScenarioWarnings: () => set({ scenarioWarnings: [] }),
+
+      setSeed: (seed) => {
+        if (!Number.isInteger(seed) || seed < 0 || seed > MAX_SEED) return false
+        if (seed === get().seed) return true
+        set({ seed })
+        get().restart()
+        return true
       },
 
       setViewport: (viewport) => {

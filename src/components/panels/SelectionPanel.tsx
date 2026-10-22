@@ -12,6 +12,8 @@ export function SelectionPanel({ networkLoad }: { networkLoad: NetworkLoadResult
   const tolls = useMapStore((state) => state.tolls)
   const beginPlacement = useMapStore((state) => state.beginPlacement)
   const resetTolls = useMapStore((state) => state.resetTolls)
+  const saveScenarioAs = useMapStore((state) => state.saveScenarioAs)
+  const setPanelView = useMapStore((state) => state.setPanelView)
 
   if (selection?.kind === 'toll') {
     const toll = tolls.find((candidate) => candidate.id === selection.id)
@@ -28,7 +30,16 @@ export function SelectionPanel({ networkLoad }: { networkLoad: NetworkLoadResult
   return (
     <OverviewPanel
       networkLoad={networkLoad}
-      editing={{ tolls, modified: tolls !== dataset.tolls, onAddToll: beginPlacement, onReset: resetTolls }}
+      editing={{
+        tolls,
+        modified: tolls !== dataset.tolls,
+        onAddToll: beginPlacement,
+        onReset: resetTolls,
+        onSaveScenario: () => {
+          saveScenarioAs()
+          setPanelView('scenarios')
+        },
+      }}
     />
   )
 }

@@ -8,7 +8,6 @@ import { Button } from '../ui/Button.tsx'
 import { Metric } from '../ui/Metric.tsx'
 
 const NO_NETWORK = 'Indisponível: a rede tem dados inválidos'
-const SCENARIOS_UNAVAILABLE = 'Os cenários ainda não estão disponíveis'
 const NOTHING_TO_RESET = 'Ainda não há alterações para repor'
 
 interface OverviewEditing {
@@ -17,6 +16,8 @@ interface OverviewEditing {
   readonly modified: boolean
   readonly onAddToll: () => void
   readonly onReset: () => void
+  /** Guarda a configuração atual como cenário novo e abre o painel de cenários. */
+  readonly onSaveScenario: () => void
 }
 
 interface OverviewPanelProps {
@@ -138,7 +139,12 @@ export function OverviewPanel({ networkLoad, editing }: OverviewPanelProps) {
         >
           Adicionar portagem
         </Button>
-        <Button icon={<Save className="size-4" />} unavailableReason={SCENARIOS_UNAVAILABLE} className="w-full">
+        <Button
+          icon={<Save className="size-4" />}
+          unavailableReason={editing ? undefined : NO_NETWORK}
+          onClick={editing?.onSaveScenario}
+          className="w-full"
+        >
           Guardar cenário
         </Button>
         <Button

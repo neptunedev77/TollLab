@@ -27,8 +27,13 @@ export function PlaybackProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const runtime = runtimeRef.current
     if (!results) return
-    if (!runtime.engine) runtime.engine = createPlayback(dataset, results.assignment, results.tolls, seed)
-    else runtime.engine.setPlan(results.assignment, results.tolls)
+    // Semente nova → partidas novas: recria o motor. Caso contrário só atualiza o plano.
+    if (!runtime.engine || runtime.engineSeed !== seed) {
+      runtime.engine = createPlayback(dataset, results.assignment, results.tolls, seed)
+      runtime.engineSeed = seed
+    } else {
+      runtime.engine.setPlan(results.assignment, results.tolls)
+    }
   }, [results, dataset, seed])
 
   // Reiniciar: volta ao minuto 0 e limpa o livro da reprodução.

@@ -1,7 +1,9 @@
 import type { NetworkLoadResult } from '../../data/loadNetwork.ts'
 import { cx } from '../../utils/cx.ts'
 import { OverviewPanel } from './OverviewPanel.tsx'
+import { ScenariosPanel } from './ScenariosPanel.tsx'
 import { SelectionPanel } from './SelectionPanel.tsx'
+import { useMapStore } from '../../store/useMapStore.ts'
 
 interface SidePanelProps {
   id: string
@@ -34,7 +36,7 @@ export function SidePanel({ id, open, networkLoad }: SidePanelProps) {
       >
         <div className="h-full overflow-y-auto">
           {networkLoad.status === 'ready' ? (
-            <SelectionPanel networkLoad={networkLoad} />
+            <ReadyPanel networkLoad={networkLoad} />
           ) : (
             <OverviewPanel networkLoad={networkLoad} />
           )}
@@ -42,4 +44,10 @@ export function SidePanel({ id, open, networkLoad }: SidePanelProps) {
       </div>
     </aside>
   )
+}
+
+/** Com a rede válida: painel de cenários ou painel da seleção do mapa. */
+function ReadyPanel({ networkLoad }: { networkLoad: NetworkLoadResult }) {
+  const view = useMapStore((state) => state.panelView)
+  return view === 'scenarios' ? <ScenariosPanel /> : <SelectionPanel networkLoad={networkLoad} />
 }

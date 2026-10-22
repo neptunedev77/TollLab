@@ -73,21 +73,22 @@ describe('App (layout principal)', () => {
     const user = userEvent.setup()
     renderApp()
 
-    const save = screen.getByRole('button', { name: 'Guardar cenário' })
-    expect(save).toHaveAttribute('aria-disabled', 'true')
-    expect(save).not.toBeDisabled()
-    expect(save).toHaveAccessibleDescription(/cenários ainda não estão disponíveis/)
-    expect(screen.getByRole('button', { name: 'Repor configuração' })).toHaveAccessibleDescription(/não há alterações/)
+    const reset = screen.getByRole('button', { name: 'Repor configuração' })
+    expect(reset).toHaveAttribute('aria-disabled', 'true')
+    expect(reset).not.toBeDisabled()
+    expect(reset).toHaveAccessibleDescription(/não há alterações/)
 
-    save.focus()
+    reset.focus()
     await user.keyboard('{Enter}')
-    expect(save).toHaveFocus()
+    expect(reset).toHaveFocus()
   })
 
   it('permite chegar ao mapa e aos seus controlos só com o teclado', async () => {
     const user = userEvent.setup()
     renderApp()
 
+    await user.tab()
+    expect(screen.getByRole('button', { name: /Cenário atual/ })).toHaveFocus()
     await user.tab()
     expect(screen.getByRole('button', { name: 'Fechar painel lateral' })).toHaveFocus()
     await user.tab()

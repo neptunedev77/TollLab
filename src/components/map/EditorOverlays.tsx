@@ -27,7 +27,7 @@ export function PlacementBanner() {
 /** Notificação discreta das ações de edição, com "Anular" quando aplicável. */
 export function NoticeToast() {
   const notice = useMapStore((state) => state.notice)
-  const undo = useMapStore((state) => state.undo)
+  const undoNotice = useMapStore((state) => state.undoNotice)
   const dismissNotice = useMapStore((state) => state.dismissNotice)
 
   useEffect(() => {
@@ -56,7 +56,7 @@ export function NoticeToast() {
           {notice.undoable && (
             <button
               type="button"
-              onClick={undo}
+              onClick={undoNotice}
               className="flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 transition-colors hover:bg-white/25"
             >
               <Undo2 aria-hidden="true" className="size-3.5" />

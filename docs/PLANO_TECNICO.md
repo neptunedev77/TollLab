@@ -190,13 +190,27 @@ Código: `src/simulation/motion.ts` (pose), `src/simulation/playback.ts` (motor 
 
 **Carga de demonstração e desempenho medido.** Carga: procura de demonstração (7000 veículos numa hora), até 1025 veículos desenhados em simultâneo (amostra 1/4), 6 pórticos com pulso. Trabalho de CPU por fotograma a 4x (avançar o motor + calcular todas as poses), medido em Node 24 nesta máquina: média 0,58 ms, p95 1,00 ms, máximo 2,00 ms em 1801 fotogramas — bem abaixo dos 16,7 ms de um fotograma a 60 FPS. O render usa duas draw calls de instâncias para os veículos. A medição de FPS no browser não foi possível nesta sessão (a janela da aplicação esteve escondida e o browser suspende o `requestAnimationFrame`); fica por confirmar em hardware real.
 
-## 4. Dependências previstas (ainda não instaladas)
+### Cenários, comparação e fecho (etapa final: 8 + 9 com âmbito reduzido)
 
-| Etapa | Pacotes |
-| --- | --- |
-| quando necessário | `motion` (Framer Motion), se as transições CSS não chegarem |
-| 4 | `zustand` |
-| 9 | `@playwright/test` |
+Por decisão do utilizador, as Etapas 8 e 9 foram juntas numa etapa final, com o âmbito do critério de conclusão do MVP.
+
+| # | Decisão | Escolha | Justificação |
+| --- | --- | --- | --- |
+| D73 | Conteúdo de um cenário | `datasetId` (a rede não é editável), pórticos com tarifas, procura, semente e resumo dos resultados do motor | Cumpre "rede, pórticos, tarifas, procura, semente e resultados" sem duplicar a rede inteira em cada cenário. |
+| D74 | Isolamento | Cada cenário é uma cópia profunda (`structuredClone`) e congelada; carregar um cenário usa a lista imutável dele e qualquer edição cria listas novas | Alterar um cenário — ou a configuração atual — nunca altera outro (testado, incluindo tentativas de mutação direta). |
+| D75 | Persistência | `localStorage`, chave `tolllab:scenarios`, envelope `{ app, version: 2, scenarios }` gravado a cada alteração | Funciona offline e sem contas. |
+| D76 | Versões e dados inválidos | v1 (sem procura nem resultados) é migrado; JSON corrompido é copiado para `tolllab:scenarios:corrupted` e ignorado; cada cenário é validado com as regras do domínio e descartado com aviso se for inválido; resultados em falta são recalculados; uma versão mais recente bloqueia a gravação | Nunca bloqueia o arranque nem apaga dados em silêncio (testado em unidade e E2E). |
+| D77 | Comparação | Métricas do motor (receita bruta, líquido, passagens, tráfego, evitam portagens, tempo médio, sem percurso) com diferença absoluta e relativa, e cor "melhor/pior" | "Não comparáveis" quando a rede ou a procura diferem; aviso quando só a semente difere. |
+| D78 | Semente | Editável no painel de cenários (inteiro 0–2³¹−1); mudar a semente reinicia a reprodução e recria as partidas | Permite repetir experiências com parâmetros controlados. |
+| D79 | Apagar | Sem diálogo de confirmação: notificação com "Anular" que repõe o cenário | Consistente com a edição de pórticos; reversível e rápido. |
+| D80 | Testes E2E | Playwright 1.64 (Chromium, WebGL por software) sobre o build de produção (`vite preview`) | Testa a aplicação real, incluindo a cena 3D, sem serviços externos. |
+
+**Verificação final:** `npm audit` sem vulnerabilidades (dependências de execução e de desenvolvimento). Versões novas disponíveis e não aplicadas: `zustand` 5.0.16 (patch), TypeScript 7 e `@types/node` 26 (major, com risco de incompatibilidade). Os testes E2E confirmam a consola sem erros em todo o fluxo do MVP. A animação foi verificada por capturas no Chromium de testes (veículos nas duas faixas, a seguir as curvas, e pulsos nos pórticos); com renderização por software (sem GPU) a cena corre a 17–22 FPS, que é um limite inferior e não representa hardware com GPU.
+
+## 4. Dependências
+
+Todas as dependências previstas foram instaladas quando foram precisas (`zustand` na Etapa 3, `@playwright/test`
+na etapa final). O Framer Motion (`motion`) nunca foi necessário: as transições CSS chegaram.
 
 ## 5. Riscos
 

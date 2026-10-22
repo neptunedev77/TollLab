@@ -1,4 +1,5 @@
 import { useId, useState, type ReactNode } from 'react'
+import { ScenarioChip } from './components/layout/ScenarioChip.tsx'
 import { TopBar } from './components/layout/TopBar.tsx'
 import { MapStage } from './components/map/MapStage.tsx'
 import { SidePanel } from './components/panels/SidePanel.tsx'
@@ -37,8 +38,13 @@ export function App({ mapStoreOptions }: AppProps = {}) {
 
   return (
     <div className="flex h-full flex-col gap-[var(--island-gap)] overflow-hidden p-[var(--island-gap)] pt-0">
-      <TopBar panelOpen={panelOpen} panelId={panelId} onTogglePanel={() => setPanelOpen((open) => !open)} />
       <WithMapStore networkLoad={networkLoad} options={mapStoreOptions}>
+        <TopBar
+          panelOpen={panelOpen}
+          panelId={panelId}
+          onTogglePanel={() => setPanelOpen((open) => !open)}
+          scenarioSlot={networkLoad.status === 'ready' ? <ScenarioChip onOpen={() => setPanelOpen(true)} /> : undefined}
+        />
         {workspace}
       </WithMapStore>
     </div>

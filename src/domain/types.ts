@@ -185,22 +185,3 @@ export interface Vehicle {
   readonly route: readonly RouteStep[] | null
   readonly status: VehicleStatus
 }
-
-/** Resultados agregados de uma execução; o detalhe é definido com o motor de cobrança. */
-export interface ScenarioResults {
-  readonly computedAt: string
-  readonly seed: number
-}
-
-export const SCENARIO_SCHEMA_VERSION = 1
-
-export interface Scenario {
-  readonly schemaVersion: typeof SCENARIO_SCHEMA_VERSION
-  readonly id: string
-  readonly name: string
-  /** Cópia própria da rede e dos pórticos: alterar um cenário nunca afeta outro. */
-  readonly dataset: NetworkDataset
-  readonly demand: DemandSpec
-  readonly seed: number
-  readonly results: ScenarioResults | null
-}

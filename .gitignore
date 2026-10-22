@@ -26,3 +26,7 @@ dist-ssr
 # Private working notes (not part of the repository)
 TollLab_especificacao_para_Claude.md
 .claude/
+
+# Playwright
+test-results/
+playwright-report/
