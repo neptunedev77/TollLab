@@ -5,6 +5,7 @@ import * as tollOps from '../domain/tolls.ts'
 import type { RoadColoring } from '../components/scene3d/palette.ts'
 import { DEFAULT_SEED, demoDemand } from '../data/demoDemand.ts'
 import type { DemandSpec, EdgeId, NetworkDataset, NodeId, TollId, TollPoint, VehicleClass } from '../domain/types.ts'
+import type { PlaybackStats } from '../simulation/playback.ts'
 import {
   clampCenter,
   easeOutCubic,
@@ -26,6 +27,18 @@ export type MapLayer = 'labels' | 'tolls' | 'alternatives'
 export type MapLayers = Readonly<Record<MapLayer, boolean>>
 
 export type MapMode = { readonly kind: 'idle' } | { readonly kind: 'placing' }
+
+export type PlaybackStatus = 'idle' | 'running' | 'paused' | 'finished'
+export type PlaybackSpeed = 1 | 2 | 4
+
+export interface PlaybackState {
+  readonly status: PlaybackStatus
+  readonly speed: PlaybackSpeed
+  /** Últimas estatísticas do motor (atualizadas algumas vezes por segundo, não a cada fotograma). */
+  readonly stats: PlaybackStats | null
+  /** Incrementa a cada reinício, para o controlador repor o motor. */
+  readonly resetToken: number
+}
 
 export interface Notice {
   /** Muda a cada notificação, para reiniciar o temporizador mesmo com a mesma mensagem. */
@@ -62,6 +75,7 @@ export interface MapState {
   /** Pórtico a ser arrastado, com o estado de antes do arrasto (para cancelar). */
   readonly drag: { readonly tollId: TollId; readonly before: readonly TollPoint[] } | null
   readonly notice: Notice | null
+  readonly playback: PlaybackState
   readonly past: readonly HistoryEntry[]
   readonly future: readonly HistoryEntry[]
   readonly viewport: Viewport | null
@@ -90,6 +104,14 @@ export interface MapState {
   undo: () => void
   redo: () => void
   dismissNotice: () => void
+
+  play: () => void
+  pause: () => void
+  /** Volta ao início da hora simulada (os veículos regressam às origens). */
+  restart: () => void
+  setSpeed: (speed: PlaybackSpeed) => void
+  /** Uso interno do controlador de reprodução. */
+  reportPlayback: (stats: PlaybackStats) => void
 
   setViewport: (viewport: Viewport) => void
   panBy: (dx: number, dy: number) => void
@@ -187,6 +209,7 @@ export function createMapStore(dataset: NetworkDataset, options: MapStoreOptions
       mode: { kind: 'idle' },
       drag: null,
       notice: null,
+      playback: { status: 'idle', speed: 1, stats: null, resetToken: 0 },
       past: [],
       future: [],
       viewport: null,
@@ -321,6 +344,33 @@ export function createMapStore(dataset: NetworkDataset, options: MapStoreOptions
       },
 
       dismissNotice: () => set({ notice: null }),
+
+      play: () => {
+        const { playback } = get()
+        // Depois de concluída, "Iniciar" recomeça do início.
+        if (playback.status === 'finished') {
+          set({ playback: { ...playback, status: 'running', stats: null, resetToken: playback.resetToken + 1 } })
+          return
+        }
+        set({ playback: { ...playback, status: 'running' } })
+      },
+
+      pause: () => {
+        const { playback } = get()
+        if (playback.status === 'running') set({ playback: { ...playback, status: 'paused' } })
+      },
+
+      restart: () => {
+        const { playback } = get()
+        set({ playback: { ...playback, status: 'idle', stats: null, resetToken: playback.resetToken + 1 } })
+      },
+
+      setSpeed: (speed) => set({ playback: { ...get().playback, speed } }),
+
+      reportPlayback: (stats) => {
+        const { playback } = get()
+        set({ playback: { ...playback, stats, status: stats.finished && playback.status === 'running' ? 'finished' : playback.status } })
+      },
 
       setViewport: (viewport) => {
         if (viewport.width <= 0 || viewport.height <= 0) return

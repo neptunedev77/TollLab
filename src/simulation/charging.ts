@@ -41,6 +41,11 @@ export type RecordResult =
 
 export interface ChargeLedger {
   record(crossing: Crossing): RecordResult
+  /**
+   * Troca o estado dos pórticos (ex.: tarifa alterada durante a reprodução). As passagens já
+   * registadas mantêm-se; as seguintes usam o estado novo. O controlo de duplicados continua.
+   */
+  setTolls(tolls: readonly TollPoint[]): void
   readonly events: readonly PassageEvent[]
 }
 
@@ -50,12 +55,15 @@ export function passageEventId(vehicleId: VehicleId, stepIndex: number, tollId: 
 
 /** Livro de cobranças para um conjunto fixo de pórticos (o estado dos pórticos do período). */
 export function createChargeLedger(tolls: readonly TollPoint[]): ChargeLedger {
-  const tollsById = new Map(tolls.map((toll) => [toll.id, toll]))
+  let tollsById = new Map(tolls.map((toll) => [toll.id, toll]))
   const seen = new Set<string>()
   const events: PassageEvent[] = []
 
   return {
     events,
+    setTolls(next) {
+      tollsById = new Map(next.map((toll) => [toll.id, toll]))
+    },
     record({ vehicle, stepIndex, tollId, atMinute }) {
       const toll = tollsById.get(tollId)
       if (!toll) return { ok: false, reason: 'unknown-toll' }

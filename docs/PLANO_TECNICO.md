@@ -170,6 +170,26 @@ Código em `src/simulation/charging.ts` (livro de cobranças) e `src/simulation/
 
 Resultados com a semente 2026 e os pórticos iniciais: 4853 passagens cobradas, 3494 veículos pagantes, receita bruta 9101,82 €, custos 538,24 € (6 × 25 € + 4853 × 0,08 €), resultado líquido 8563,58 €.
 
+### Animação 3D e sincronização (Etapa 7)
+
+Código: `src/simulation/motion.ts` (pose), `src/simulation/playback.ts` (motor no tempo), `src/components/simulation/PlaybackProvider.tsx` (relógio) e `src/components/scene3d/Vehicles.tsx` (render).
+
+| # | Decisão | Escolha | Justificação |
+| --- | --- | --- | --- |
+| D62 | Pose analítica | Posição e direção são funções do minuto da viagem, ao longo das curvas canónicas dos troços; velocidade constante dentro de cada passo (duração = tempo com congestionamento) | O render pode pedir a pose em qualquer instante sem recalcular o motor; a posição é contínua entre troços (testado: deslocação ≤ velocidade × Δt). |
+| D63 | Direção suave | Direção entre dois pontos a ±1,5 unidades no percurso (atravessa nós) | Sem rotações bruscas nas viragens (testado: variação máxima < 0,35 rad em passos de 0,02 min). |
+| D64 | Faixas | Afastamento de 1,1 unidades para a direita do sentido de marcha | Os dois sentidos não se sobrepõem. |
+| D65 | Relógio | Motor em passos fixos de 0,05 min simulados; o controlador tem o seu `requestAnimationFrame`, converte tempo real × velocidade em minutos e avança o motor; a cena só lê `renderMinute` | Separa a simulação do render: o mesmo resultado com qualquer taxa de fotogramas (testado com saltos grandes e pequenos). Fotogramas longos são limitados a 0,25 s reais. |
+| D66 | Escala de tempo | 1x = 1 minuto simulado por segundo (a hora de procura dura 60 s); 2x e 4x | Ritmo legível a 1x e rápido a 4x. |
+| D67 | Partidas | Minuto de partida uniforme em [0, 60[ por veículo, com semente; veículos sem percurso nunca partem | Reprodutível; sem teletransporte. |
+| D68 | Cobrança no tempo | O motor regista cada travessia no livro de cobranças (Etapa 6) no passo fixo em que acontece; o pórtico pulsa nesse instante | A animação corresponde ao motor: no fim, o livro da reprodução tem exatamente os eventos da cobrança estática do período; em cada evento, o veículo está em cima do pórtico (< 0,05 unidades; atraso ≤ 1 passo). |
+| D69 | Alterações durante a reprodução | `setPlan` atualiza pórticos e percursos só para quem ainda não partiu; o livro passa a usar o estado novo para as passagens seguintes | Não interrompe o movimento; os veículos em viagem não mudam de percurso a meio. |
+| D70 | Render | Dois `InstancedMesh` (carroçaria e cabine), matrizes escritas diretamente em `useFrame`; cada veículo desenhado representa 4 simulados (amostra estável por ordem de geração); todos contam nos totais | Sem atualizações React por veículo; menos ruído visual com 7000 veículos/h. |
+| D71 | Movimento reduzido | Com `prefers-reduced-motion`, os pulsos dos pórticos ficam desligados; os veículos só se movem quando o utilizador inicia a simulação | O movimento dos veículos é o próprio conteúdo e é sempre iniciado pelo utilizador. |
+| D72 | Separação de chunks | O controlador não importa three.js nem R3F: a cena regista a sua função `invalidate` no runtime | A interface continua a abrir sem carregar o three.js (327 kB vs 923 kB do chunk 3D). |
+
+**Carga de demonstração e desempenho medido.** Carga: procura de demonstração (7000 veículos numa hora), até 1025 veículos desenhados em simultâneo (amostra 1/4), 6 pórticos com pulso. Trabalho de CPU por fotograma a 4x (avançar o motor + calcular todas as poses), medido em Node 24 nesta máquina: média 0,58 ms, p95 1,00 ms, máximo 2,00 ms em 1801 fotogramas — bem abaixo dos 16,7 ms de um fotograma a 60 FPS. O render usa duas draw calls de instâncias para os veículos. A medição de FPS no browser não foi possível nesta sessão (a janela da aplicação esteve escondida e o browser suspende o `requestAnimationFrame`); fica por confirmar em hardware real.
+
 ## 4. Dependências previstas (ainda não instaladas)
 
 | Etapa | Pacotes |

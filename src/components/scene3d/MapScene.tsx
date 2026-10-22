@@ -14,6 +14,7 @@ import { useMapStore, useMapStoreApi } from '../../store/useMapStore.ts'
 import { screenToWorld, TILT_RAD } from '../map/viewMath.ts'
 import { bandColor, COLOR_SCALES, NODE_RADIUS, ROAD_WIDTH, SCENE_COLORS } from './palette.ts'
 import { buildRibbon } from './ribbon.ts'
+import { GantryPulse, Vehicles } from './Vehicles.tsx'
 
 /** Arrastos maiores do que isto (px) contam como pan, não como clique. */
 const CLICK_TOLERANCE_PX = 5
@@ -216,6 +217,7 @@ function SceneContent() {
           const curve = curves.get(ghost.edgeId)
           return edge && curve ? <GantryShape edge={edge} curve={curve} position={ghost.position} color={SCENE_COLORS.selected} opacity={0.55} /> : null
         })()}
+      <Vehicles />
       {dataset.network.nodes.map((node) => {
         const position = dataset.layout.nodePositions[node.id]
         if (!position) return null
@@ -437,6 +439,7 @@ function Gantry({
 
   return (
     <group>
+      <GantryPulse tollId={toll.id} x={anchor.point.x} z={anchor.point.y} />
       {(selected || dragging) && (
         <mesh position={[anchor.point.x, 0.15, anchor.point.y]} rotation={[-Math.PI / 2, 0, 0]}>
           <circleGeometry args={[9, 40]} />

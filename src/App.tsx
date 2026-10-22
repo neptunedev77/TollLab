@@ -2,6 +2,7 @@ import { useId, useState, type ReactNode } from 'react'
 import { TopBar } from './components/layout/TopBar.tsx'
 import { MapStage } from './components/map/MapStage.tsx'
 import { SidePanel } from './components/panels/SidePanel.tsx'
+import { PlaybackProvider } from './components/simulation/PlaybackProvider.tsx'
 import { ErrorBoundary } from './components/ui/ErrorBoundary.tsx'
 import { loadNetwork } from './data/loadNetwork.ts'
 import type { MapStoreOptions } from './store/mapStore.ts'
@@ -57,7 +58,7 @@ function WithMapStore({
   if (networkLoad.status !== 'ready') return children
   return (
     <MapStoreProvider dataset={networkLoad.dataset} options={options}>
-      {children}
+      <PlaybackProvider>{children}</PlaybackProvider>
     </MapStoreProvider>
   )
 }

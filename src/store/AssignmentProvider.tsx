@@ -17,7 +17,7 @@ export function AssignmentProvider({ children }: { children: ReactNode }) {
 
   const results = useMemo(() => {
     const assignment = assignTraffic(dataset, tolls, demand, { seed })
-    return { assignment, charging: chargePeriod(dataset, tolls, assignment) }
+    return { tolls, assignment, charging: chargePeriod(dataset, tolls, assignment) }
   }, [dataset, tolls, demand, seed])
 
   return <SimulationResultsContext.Provider value={results}>{children}</SimulationResultsContext.Provider>
