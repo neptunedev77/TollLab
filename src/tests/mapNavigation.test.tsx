@@ -99,18 +99,22 @@ describe('navegação do mapa', () => {
     expect(screen.queryByRole('button', { name: 'Braga' })).not.toBeInTheDocument()
   })
 
-  it('o menu de camadas fecha com Escape e mostra as camadas de simulação como indisponíveis', async () => {
+  it('o menu de camadas escolhe a cor das estradas, fecha com Escape e atualiza a legenda', async () => {
     const user = userEvent.setup()
     setup()
     await user.click(screen.getByRole('button', { name: 'Camadas' }))
 
-    const revenue = screen.getByRole('switch', { name: 'Receita' })
-    expect(revenue).toBeDisabled()
-    expect(revenue).toHaveAccessibleDescription('Requer o registo de cobranças')
-    expect(screen.getByRole('switch', { name: 'Tráfego (volume/capacidade)' })).toBeEnabled()
+    expect(screen.getByRole('radio', { name: 'Classe da via' })).toBeChecked()
+    await user.click(screen.getByRole('radio', { name: 'Preço' }))
+    expect(screen.getByRole('radio', { name: 'Preço' })).toHaveAccessibleDescription('Tarifa da classe 1 no troço')
 
     await user.keyboard('{Escape}')
-    expect(screen.queryByRole('switch', { name: 'Receita' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('radio', { name: 'Preço' })).not.toBeInTheDocument()
+
+    // A legenda passa a mostrar as faixas de preço.
+    await user.click(screen.getByRole('button', { name: 'Legenda' }))
+    expect(screen.getByText('Sem portagem')).toBeInTheDocument()
+    expect(screen.getByText('3 € ou mais')).toBeInTheDocument()
   })
 
   it('a legenda começa recolhida e abre e fecha', async () => {

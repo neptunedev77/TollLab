@@ -3,18 +3,23 @@ import { useEffect, useId, useRef, useState } from 'react'
 import type { MapLayer } from '../../store/mapStore.ts'
 import { useMapStore } from '../../store/useMapStore.ts'
 import { IconButton } from '../ui/IconButton.tsx'
+import type { RoadColoring } from '../scene3d/palette.ts'
 import { Toggle } from '../ui/Toggle.tsx'
+import { cx } from '../../utils/cx.ts'
 import { ZOOM_STEP } from './MapViewport.tsx'
 
 const LAYER_OPTIONS: ReadonlyArray<{ layer: MapLayer; label: string }> = [
   { layer: 'labels', label: 'Nomes das cidades' },
   { layer: 'tolls', label: 'Pórticos' },
   { layer: 'alternatives', label: 'Vias alternativas' },
-  { layer: 'traffic', label: 'Tráfego (volume/capacidade)' },
 ]
 
-/** Camadas que dependem de resultados da simulação; visíveis, mas indisponíveis por agora. */
-const SIMULATION_LAYERS = ['Preço', 'Receita'] as const
+const COLORING_OPTIONS: ReadonlyArray<{ value: RoadColoring; label: string; hint: string }> = [
+  { value: 'network', label: 'Classe da via', hint: 'Autoestradas e vias alternativas' },
+  { value: 'traffic', label: 'Tráfego', hint: 'Volume face à capacidade' },
+  { value: 'price', label: 'Preço', hint: 'Tarifa da classe 1 no troço' },
+  { value: 'revenue', label: 'Receita', hint: 'Receita bruta do troço' },
+]
 
 export function MapControls() {
   const zoomBy = useMapStore((state) => state.zoomBy)
@@ -44,6 +49,9 @@ export function MapControls() {
 function LayersMenu() {
   const layers = useMapStore((state) => state.layers)
   const toggleLayer = useMapStore((state) => state.toggleLayer)
+  const coloring = useMapStore((state) => state.coloring)
+  const setColoring = useMapStore((state) => state.setColoring)
+  const coloringName = useId()
   const [open, setOpen] = useState(false)
   const menuId = useId()
   const rootRef = useRef<HTMLDivElement>(null)
@@ -92,11 +100,38 @@ function LayersMenu() {
               <Toggle key={layer} label={label} checked={layers[layer]} onChange={() => toggleLayer(layer)} />
             ))}
           </div>
-          <div className="mt-2 border-t border-border pt-2">
-            {SIMULATION_LAYERS.map((label) => (
-              <Toggle key={label} label={label} checked={false} disabled hint="Requer o registo de cobranças" />
+          <fieldset className="mt-2 flex flex-col gap-0.5 border-t border-border pt-2">
+            <legend className="float-left w-full px-1 pb-1 text-[0.6875rem] font-extrabold tracking-wider text-subtle uppercase">
+              Cor das estradas
+            </legend>
+            {COLORING_OPTIONS.map((option) => (
+              <label
+                key={option.value}
+                className={cx(
+                  'flex cursor-pointer items-center gap-2.5 rounded-xl px-1.5 py-1.5 transition-colors duration-150 hover:bg-surface-muted',
+                  'has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-focus',
+                )}
+              >
+                <input
+                  type="radio"
+                  name={coloringName}
+                  value={option.value}
+                  checked={coloring === option.value}
+                  onChange={() => setColoring(option.value)}
+                  aria-label={option.label}
+                  aria-describedby={`${coloringName}-${option.value}`}
+                  className="size-3.5 accent-[var(--color-accent)]"
+                />
+                <span aria-hidden="true" className="flex flex-col">
+                  <span className="text-xs font-bold text-ink">{option.label}</span>
+                  <span className="text-[0.625rem] text-subtle">{option.hint}</span>
+                </span>
+                <span id={`${coloringName}-${option.value}`} className="sr-only">
+                  {option.hint}
+                </span>
+              </label>
             ))}
-          </div>
+          </fieldset>
         </fieldset>
       )}
     </div>

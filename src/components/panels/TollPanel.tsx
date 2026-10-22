@@ -3,9 +3,9 @@ import { useId, useState } from 'react'
 import { centsToInput, formatEuros, parseEuroInput } from '../../domain/money.ts'
 import { nodeName } from '../../domain/summary.ts'
 import { VEHICLE_CLASSES, type TollPoint, type VehicleClass } from '../../domain/types.ts'
-import { useAssignment } from '../../store/useAssignment.ts'
+import { useAssignment, useCharging } from '../../store/useAssignment.ts'
 import { useMapStore } from '../../store/useMapStore.ts'
-import { formatInteger } from '../../utils/format.ts'
+import { formatInteger, formatMinutes } from '../../utils/format.ts'
 import { cx } from '../../utils/cx.ts'
 import { Badge } from '../ui/Badge.tsx'
 import { Button } from '../ui/Button.tsx'
@@ -37,6 +37,15 @@ export function TollPanel({ toll }: { toll: TollPoint }) {
   const [vehicleClass, setVehicleClass] = useState<VehicleClass>('c1')
   const assignment = useAssignment()
   const avoiders = toll.active ? (assignment?.tollAvoiders.get(toll.id) ?? 0) : null
+  const charging = useCharging()
+  const revenue = charging?.report.byToll.get(toll.id)
+  const freeCrossings = !toll.active ? (assignment?.edgeVolumes.get(toll.edgeId) ?? 0) : 0
+  const firstPassages = charging
+    ? charging.events
+        .filter((event) => event.tollId === toll.id)
+        .sort((a, b) => (a.atMinute ?? 0) - (b.atMinute ?? 0))
+        .slice(0, 4)
+    : []
 
   return (
     <div className="flex flex-col gap-5 p-5 motion-safe:animate-settle">
@@ -109,8 +118,31 @@ export function TollPanel({ toll }: { toll: TollPoint }) {
 
       <section aria-label="Resultados do pórtico" className="flex flex-col gap-2">
         <dl className="grid grid-cols-2 gap-2">
-          <Metric label="Passagens" hint="Ainda não calculado" icon={<Repeat className="size-4" />} tone="sky" />
-          <Metric label="Receita bruta" hint="Ainda não calculado" icon={<Coins className="size-4" />} tone="peach" />
+          <Metric
+            label="Passagens cobradas"
+            value={revenue ? formatInteger(revenue.passages) : undefined}
+            hint={toll.active ? 'por hora' : `Inativo: ${formatInteger(freeCrossings)} veíc./h passam sem pagar`}
+            icon={<Repeat className="size-4" />}
+            tone="sky"
+          />
+          <Metric
+            label="Receita bruta"
+            value={revenue ? formatEuros(revenue.grossCents) : undefined}
+            hint="Antes de custos"
+            icon={<Coins className="size-4" />}
+            tone="peach"
+          />
+          <div className="col-span-2">
+            <Metric
+              label="Resultado líquido estimado"
+              value={revenue ? formatEuros(revenue.netCents) : undefined}
+              hint={
+                revenue
+                  ? `Custos: ${formatEuros(revenue.fixedCostCents)} fixos + ${formatEuros(revenue.collectionCostCents)} de cobrança (ilustrativo)`
+                  : undefined
+              }
+            />
+          </div>
           <div className="col-span-2">
             <Metric
               label="Tráfego que escolhe alternativas"
@@ -126,6 +158,27 @@ export function TollPanel({ toll }: { toll: TollPoint }) {
           </div>
         </dl>
       </section>
+
+      {firstPassages.length > 0 && (
+        <section aria-labelledby="passages-title" className="flex flex-col gap-2">
+          <h3 id="passages-title" className="px-1 text-[0.6875rem] font-extrabold tracking-wider text-subtle uppercase">
+            Registo de passagens (primeiras)
+          </h3>
+          <ol aria-labelledby="passages-title" className="flex flex-col gap-1">
+            {firstPassages.map((event) => (
+              <li key={event.id} className="flex items-center justify-between gap-2 rounded-xl bg-surface-muted px-3 py-1.5 text-[0.6875rem]">
+                <span className="truncate font-mono text-subtle" title={event.id}>
+                  {event.id}
+                </span>
+                <span className="shrink-0 font-bold text-ink tabular-nums">
+                  {event.vehicleClass.replace('c', 'C')} · {formatEuros(event.tariffCents)}
+                  {event.atMinute !== null ? ` · ${formatMinutes(event.atMinute)}` : ''}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
 
       <Button
         icon={<Trash2 className="size-4" />}

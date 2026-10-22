@@ -8,10 +8,11 @@ import { snapToNetwork } from '../../domain/tolls.ts'
 import type { EdgeId, RoadEdge, RoadNode, SchematicPoint, TollPoint } from '../../domain/types.ts'
 import { edgeLoad } from '../../simulation/assignment.ts'
 import type { MapStore, Selection } from '../../store/mapStore.ts'
-import { useAssignment } from '../../store/useAssignment.ts'
+import { tollTableByEdge } from '../../simulation/costs.ts'
+import { useAssignment, useCharging } from '../../store/useAssignment.ts'
 import { useMapStore, useMapStoreApi } from '../../store/useMapStore.ts'
 import { screenToWorld, TILT_RAD } from '../map/viewMath.ts'
-import { NODE_RADIUS, ROAD_WIDTH, SCENE_COLORS, trafficColor } from './palette.ts'
+import { bandColor, COLOR_SCALES, NODE_RADIUS, ROAD_WIDTH, SCENE_COLORS } from './palette.ts'
 import { buildRibbon } from './ribbon.ts'
 
 /** Arrastos maiores do que isto (px) contam como pan, não como clique. */
@@ -98,7 +99,17 @@ function SceneContent() {
   const placing = useMapStore((state) => state.mode.kind === 'placing')
   const draggingId = useMapStore((state) => state.drag?.tollId ?? null)
   const assignment = useAssignment()
-  const showTraffic = layers.traffic && assignment !== null
+  const charging = useCharging()
+  const coloring = useMapStore((state) => state.coloring)
+  const priceTable = useMemo(() => tollTableByEdge(tolls), [tolls])
+
+  /** Cor da estrada segundo o modo escolhido; `null` usa as cores da classe da via. */
+  const colorFor = (edgeId: EdgeId): string | null => {
+    if (coloring === 'traffic' && assignment) return bandColor(COLOR_SCALES.traffic, edgeLoad(assignment, edgeId))
+    if (coloring === 'price') return bandColor(COLOR_SCALES.price, priceTable.get(edgeId)?.c1 ?? 0)
+    if (coloring === 'revenue' && charging) return bandColor(COLOR_SCALES.revenue, charging.report.byEdge.get(edgeId) ?? 0)
+    return null
+  }
   const [ghostState, setGhost] = useState<{ edgeId: EdgeId; position: number } | null>(null)
   // O fantasma só existe em modo de colocação (derivado, sem efeito para o limpar).
   const ghost = placing ? ghostState : null
@@ -175,7 +186,7 @@ function SceneContent() {
             curve={curve}
             selected={is(selection, 'edge', edge.id)}
             hovered={is(hover, 'edge', edge.id)}
-            trafficLoad={showTraffic && assignment ? edgeLoad(assignment, edge.id) : null}
+            dataColor={colorFor(edge.id)}
             handlers={roadHandlers(edge, curve)}
           />
         )
@@ -241,15 +252,15 @@ function Road({
   curve,
   selected,
   hovered,
-  trafficLoad,
+  dataColor,
   handlers,
 }: {
   edge: RoadEdge
   curve: readonly SchematicPoint[]
   selected: boolean
   hovered: boolean
-  /** Carga volume/capacidade quando a camada de tráfego está ligada; `null` caso contrário. */
-  trafficLoad: number | null
+  /** Cor de dados (tráfego, preço ou receita); `null` usa a cor da classe da via. */
+  dataColor: string | null
   handlers: Handlers & { onPointerMove: (event: ThreeEvent<PointerEvent>) => void }
 }) {
   const motorway = edge.roadClass === 'motorway'
@@ -264,8 +275,8 @@ function Road({
     ? SCENE_COLORS.selected
     : hovered
       ? SCENE_COLORS.hover
-      : trafficLoad !== null
-        ? trafficColor(trafficLoad)
+      : dataColor !== null
+        ? dataColor
         : motorway
         ? SCENE_COLORS.motorway
         : SCENE_COLORS.alternative

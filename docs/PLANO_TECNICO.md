@@ -104,7 +104,7 @@ São três e nunca se misturam:
 | D29 | Seleção | `select()` só aceita elementos que existem e estão visíveis; esconder uma camada limpa a seleção que deixou de estar visível; clicar no vazio limpa, arrastar não | Mantém a seleção sempre consistente com o que se vê. |
 | D30 | Acessibilidade do mapa | Viewport `role="application"` focável (setas, + e −, 0, Esc); rótulos das cidades são botões; o painel de uma cidade lista as ligações como botões | O canvas WebGL não é acessível por si; isto permite selecionar cidades e troços só com o teclado. |
 | D31 | Carregamento | A cena 3D é um chunk à parte (`lazy`), com estado de carregamento e fallback sem WebGL | A interface abre sem esperar pelo three.js (~243 kB comprimido). O limite do aviso de chunk subiu para 1000 kB só por causa desse chunk. |
-| D32 | Camadas | Nomes das cidades, pórticos e vias alternativas; tráfego, preço e receita aparecem como indisponíveis ("Requer simulação") | Não se mostram camadas sem dados reais por trás. |
+| D32 | Camadas | Nomes das cidades, pórticos e vias alternativas (interruptores); a cor das estradas é uma escolha à parte (D61) | Não se mostram camadas sem dados reais por trás. |
 
 **Licenças e dados externos (verificado na Etapa 3):** não há dados geográficos, tiles nem serviços externos; a rede é local e esquemática. Licenças das dependências de execução: React, React DOM, three.js, React Three Fiber e Zustand (MIT), Lucide (ISC), Nunito (OFL-1.1). Ferramentas de desenvolvimento: MIT, exceto o TypeScript (Apache-2.0). Nenhuma exige atribuição visível na interface; as licenças acompanham os pacotes.
 
@@ -151,6 +151,24 @@ Código em `src/simulation/` (TypeScript puro; o teste de arquitetura garante qu
 | D55 | Classes e PCE | Todas as classes contam como 1 veículo no congestionamento; pagam a tarifa da sua classe | Simplificação documentada; equivalentes de ligeiros por classe podem ser acrescentados depois. |
 
 Resultados verificados com a semente 2026 (tarifa da classe 1 no pórtico A3 Maia): 1,85 € → 1714 veíc./h na A3 Maia–Famalicão; 4,00 € → 742; 8,00 € → 145. O tráfego desviado segue sobretudo pela A28 + A7 (via Vila do Conde), não pela N14.
+
+### Cobrança, receitas e métricas (Etapa 6)
+
+Código em `src/simulation/charging.ts` (livro de cobranças) e `src/simulation/economics.ts` (receitas e custos).
+
+| # | Decisão | Escolha | Justificação |
+| --- | --- | --- | --- |
+| D8 | Regra de cobrança (confirmada) | **Por pórtico**: cada travessia de um pórtico ativo do percurso gera um evento com a tarifa da classe do veículo; nos troços de dois sentidos cobra nos dois sentidos; dois pórticos no mesmo troço cobram duas vezes | Simples, consistente e verificável; é também a forma de cobrança das antigas SCUT (pórticos eletrónicos). |
+| D56 | Unicidade dos eventos | ID `veículo#passo@pórtico`; o livro recusa duplicados, pórticos inativos, inexistentes ou fora do passo indicado do percurso, e conta as recusas por motivo | Garante "cada passagem elegível é cobrada exatamente uma vez" (testado na rede inteira) e prepara a animação, que vai registar travessias no tempo com o mesmo livro. |
+| D57 | Ordem e momento | As travessias seguem a ordem de passagem (invertida no sentido contrário do troço); `atMinute` = tempo até ao passo + fração do troço × tempo do troço com congestionamento | O registo de eventos tem uma cronologia coerente com o percurso. |
+| D58 | Totais | Receita bruta, por pórtico, por classe e por troço são sempre somas dos eventos registados | Não há números paralelos: os totais batem com as portagens de cada viagem (testado). |
+| D59 | Custos (ilustrativos) | 25 €/h fixos por pórtico instalado (amortização + manutenção, mesmo inativo) e 0,08 € por passagem cobrada | Permite distinguir receita bruta de resultado líquido e mostra que um pórtico inativo continua a custar dinheiro. Não são valores reais. |
+| D60 | Resultado líquido | Receita bruta − custos estimados; pode ser negativo; apresentado sempre separado da receita bruta | Evita confundir receita com lucro. |
+| D61 | Cor das estradas | Uma escolha exclusiva: classe da via, tráfego (carga), preço (tarifa C1 dos pórticos ativos) ou receita (receita bruta do troço); faixas definidas uma só vez (`COLOR_SCALES`) e partilhadas por mapa e legenda | Substitui as camadas antes indisponíveis; nunca há duas cores de dados sobrepostas. |
+
+**Pressupostos e limitações:** o período é uma hora de procura; os veículos de classes 2–4 contam como 1 veículo no congestionamento mas pagam a tarifa da sua classe; os custos são ilustrativos; a receita não inclui IVA nem descontos.
+
+Resultados com a semente 2026 e os pórticos iniciais: 4853 passagens cobradas, 3494 veículos pagantes, receita bruta 9101,82 €, custos 538,24 € (6 × 25 € + 4853 × 0,08 €), resultado líquido 8563,58 €.
 
 ## 4. Dependências previstas (ainda não instaladas)
 

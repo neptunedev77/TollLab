@@ -155,3 +155,28 @@ describe('resultados do motor no painel', () => {
     expect(within(panel()).getByText('Tempo estimado').closest('div')).toHaveTextContent(/min/)
   })
 })
+
+describe('receitas no painel', () => {
+  it('o pórtico mostra passagens, receita bruta, resultado líquido e o registo das primeiras passagens', async () => {
+    const user = userEvent.setup()
+    await openPenafielToll(user)
+
+    expect(within(panel()).getByText('Passagens cobradas').closest('div')).toHaveTextContent(/\d/)
+    expect(within(panel()).getByText('Receita bruta').closest('div')).toHaveTextContent(/€/)
+    expect(within(panel()).getByText('Resultado líquido estimado').closest('div')).toHaveTextContent(/Custos:/)
+    const log = within(panel()).getByRole('list', { name: /Registo de passagens/ })
+    expect(within(log).getAllByRole('listitem').length).toBeGreaterThan(0)
+    expect(within(log).getAllByRole('listitem')[0]).toHaveTextContent(/@toll-a4-penafiel/)
+  })
+
+  it('desativar o pórtico põe as passagens cobradas a zero e indica quem passa sem pagar', async () => {
+    const user = userEvent.setup()
+    await openPenafielToll(user)
+
+    await user.click(within(panel()).getByRole('switch', { name: 'Cobrança ativa' }))
+    await vi.waitFor(() =>
+      expect(within(panel()).getByText('Passagens cobradas').closest('div')).toHaveTextContent(/^Passagens cobradas0/),
+    )
+    expect(within(panel()).getByText(/passam sem pagar/)).toBeInTheDocument()
+  })
+})

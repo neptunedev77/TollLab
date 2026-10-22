@@ -1,7 +1,8 @@
-import { Car, Clock, Coins, Info, Plus, RotateCcw, Route, Save, Ticket } from 'lucide-react'
+import { Car, Clock, Coins, Info, Plus, Receipt, RotateCcw, Route, Save, Scale, Ticket } from 'lucide-react'
 import type { NetworkLoadResult } from '../../data/loadNetwork.ts'
 import type { TollPoint } from '../../domain/types.ts'
-import { useAssignment } from '../../store/useAssignment.ts'
+import { formatEuros } from '../../domain/money.ts'
+import { useAssignment, useCharging } from '../../store/useAssignment.ts'
 import { formatInteger, formatMinutes, formatPercent } from '../../utils/format.ts'
 import { Button } from '../ui/Button.tsx'
 import { Metric } from '../ui/Metric.tsx'
@@ -34,6 +35,7 @@ export function OverviewPanel({ networkLoad, editing }: OverviewPanelProps) {
   const assignment = useAssignment()
   const summary = assignment?.summary
   const seed = assignment?.seed
+  const report = useCharging()?.report
 
   return (
     <div className="flex flex-col gap-5 p-5">
@@ -78,18 +80,46 @@ export function OverviewPanel({ networkLoad, editing }: OverviewPanelProps) {
             icon={<Clock className="size-4" />}
             tone="sky"
           />
+        </dl>
+      </section>
+
+      <section aria-labelledby="results-title" className="flex flex-col gap-2">
+        <h2 id="results-title" className="px-1 text-[0.6875rem] font-extrabold tracking-wider text-subtle uppercase">
+          Resultado do período
+        </h2>
+        <dl className="grid grid-cols-2 gap-2">
           <div className="col-span-2">
             <Metric
               label="Receita bruta do período"
-              hint="Receita antes de custos. Não é lucro."
+              value={report ? formatEuros(report.grossCents) : undefined}
+              hint={
+                report
+                  ? `${formatInteger(report.passages)} passagens cobradas · ${formatInteger(report.payingVehicles)} veículos pagantes. Antes de custos: não é lucro.`
+                  : 'Receita antes de custos. Não é lucro.'
+              }
               icon={<Coins className="size-4" />}
               tone="peach"
             />
           </div>
+          <Metric
+            label="Custos estimados"
+            value={report ? formatEuros(report.totalCostCents) : undefined}
+            hint={report ? 'Pórticos instalados e cobrança · ilustrativo' : undefined}
+            icon={<Receipt className="size-4" />}
+            tone="sky"
+          />
+          <Metric
+            label="Resultado líquido estimado"
+            value={report ? formatEuros(report.netCents) : undefined}
+            hint={report ? 'Receita bruta − custos' : undefined}
+            icon={<Scale className="size-4" />}
+            tone={report && report.netCents < 0 ? 'peach' : 'mint'}
+          />
         </dl>
         {summary && (
           <p className="px-1 text-[0.6875rem] leading-snug text-subtle">
-            Estimativa do motor de percursos para uma hora de procura de demonstração (semente {seed}).
+            Estimativas do modelo para uma hora de procura de demonstração (semente {seed}); os totais são somas
+            dos eventos de passagem registados.
           </p>
         )}
       </section>

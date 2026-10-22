@@ -1,12 +1,13 @@
 import { useDeferredValue, useMemo, type ReactNode } from 'react'
 import { assignTraffic } from '../simulation/assignment.ts'
-import { AssignmentContext } from './useAssignment.ts'
+import { chargePeriod } from '../simulation/economics.ts'
+import { SimulationResultsContext } from './useAssignment.ts'
 import { useMapStore } from './useMapStore.ts'
 
 /**
- * Calcula a afetação de tráfego uma única vez para toda a interface, sempre que os pórticos, a
- * procura ou a semente mudam. O cálculo usa um valor diferido: enquanto o utilizador arrasta um
- * slider, a interface continua fluida e os resultados atualizam logo a seguir.
+ * Calcula uma única vez para toda a interface a afetação de tráfego e a cobrança do período, sempre
+ * que os pórticos, a procura ou a semente mudam. Usa um valor diferido: enquanto o utilizador arrasta
+ * um slider, a interface continua fluida e os resultados atualizam logo a seguir.
  */
 export function AssignmentProvider({ children }: { children: ReactNode }) {
   const dataset = useMapStore((state) => state.dataset)
@@ -14,6 +15,10 @@ export function AssignmentProvider({ children }: { children: ReactNode }) {
   const demand = useMapStore((state) => state.demand)
   const seed = useMapStore((state) => state.seed)
 
-  const result = useMemo(() => assignTraffic(dataset, tolls, demand, { seed }), [dataset, tolls, demand, seed])
-  return <AssignmentContext.Provider value={result}>{children}</AssignmentContext.Provider>
+  const results = useMemo(() => {
+    const assignment = assignTraffic(dataset, tolls, demand, { seed })
+    return { assignment, charging: chargePeriod(dataset, tolls, assignment) }
+  }, [dataset, tolls, demand, seed])
+
+  return <SimulationResultsContext.Provider value={results}>{children}</SimulationResultsContext.Provider>
 }

@@ -35,9 +35,10 @@ describe('App (layout principal)', () => {
     renderApp()
 
     expect(screen.getByText(/Cidades em posições reais/)).toHaveTextContent('não é cartografia oficial')
-    // Só a receita fica vazia: depende do registo de cobranças, que ainda não existe.
-    expect(screen.getAllByText('Sem dados')).toHaveLength(1)
-    expect(screen.getByText('Receita bruta do período').closest('div')).toHaveTextContent('Sem dados')
+    // Todos os números da visão geral vêm do modelo: não há métricas vazias nem inventadas.
+    expect(screen.queryAllByText('Sem dados')).toHaveLength(0)
+    expect(screen.getByText('Receita bruta do período').closest('div')).toHaveTextContent(/€/)
+    expect(screen.getByText('Receita bruta do período').closest('div')).toHaveTextContent(/não é lucro/)
   })
 
   it('mostra as contagens reais da rede carregada', () => {

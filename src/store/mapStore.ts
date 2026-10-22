@@ -2,6 +2,7 @@ import { createStore } from 'zustand/vanilla'
 import { layoutBounds, type Bounds } from '../domain/geometry.ts'
 import { formatEuros } from '../domain/money.ts'
 import * as tollOps from '../domain/tolls.ts'
+import type { RoadColoring } from '../components/scene3d/palette.ts'
 import { DEFAULT_SEED, demoDemand } from '../data/demoDemand.ts'
 import type { DemandSpec, EdgeId, NetworkDataset, NodeId, TollId, TollPoint, VehicleClass } from '../domain/types.ts'
 import {
@@ -21,7 +22,7 @@ export type Selection =
   | { readonly kind: 'edge'; readonly id: EdgeId }
   | { readonly kind: 'toll'; readonly id: TollId }
 
-export type MapLayer = 'labels' | 'tolls' | 'alternatives' | 'traffic'
+export type MapLayer = 'labels' | 'tolls' | 'alternatives'
 export type MapLayers = Readonly<Record<MapLayer, boolean>>
 
 export type MapMode = { readonly kind: 'idle' } | { readonly kind: 'placing' }
@@ -55,6 +56,8 @@ export interface MapState {
   /** Elemento sob o cursor na cena 3D (para o cursor e o realce). */
   readonly hover: Selection | null
   readonly layers: MapLayers
+  /** O que a cor das estradas representa: classe da via, tráfego, preço ou receita. */
+  readonly coloring: RoadColoring
   readonly mode: MapMode
   /** Pórtico a ser arrastado, com o estado de antes do arrasto (para cancelar). */
   readonly drag: { readonly tollId: TollId; readonly before: readonly TollPoint[] } | null
@@ -69,6 +72,7 @@ export interface MapState {
   clearSelection: () => void
   setHover: (hover: Selection | null) => void
   toggleLayer: (layer: MapLayer) => void
+  setColoring: (coloring: RoadColoring) => void
 
   beginPlacement: () => void
   cancelPlacement: () => void
@@ -178,7 +182,8 @@ export function createMapStore(dataset: NetworkDataset, options: MapStoreOptions
       tolls: dataset.tolls,
       selection: null,
       hover: null,
-      layers: { labels: true, tolls: true, alternatives: true, traffic: false },
+      layers: { labels: true, tolls: true, alternatives: true },
+      coloring: 'network',
       mode: { kind: 'idle' },
       drag: null,
       notice: null,
@@ -204,6 +209,8 @@ export function createMapStore(dataset: NetworkDataset, options: MapStoreOptions
         const { selection, tolls } = get()
         set({ layers, selection: selection && isVisible(selection, { layers, tolls }) ? selection : null })
       },
+
+      setColoring: (coloring) => set({ coloring }),
 
       beginPlacement: () => {
         if (!get().layers.tolls) set({ layers: { ...get().layers, tolls: true } })
